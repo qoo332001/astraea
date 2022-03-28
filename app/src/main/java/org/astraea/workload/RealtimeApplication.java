@@ -38,7 +38,6 @@ public class RealtimeApplication {
                                     "earliest"));
 
             while (true){
-                ka
                 kafkaConsumer.poll(Duration.ofSeconds(1L));
             }
         }

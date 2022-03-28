@@ -65,7 +65,7 @@ public class HotKeyApplication {
                         .forEach(x -> producer.send(record));
                   });
 
-          TimeUnit.MILLISECONDS.sleep((long) (positiveGaussian.get() * 200));
+          TimeUnit.MILLISECONDS.sleep((long) (positiveGaussian.get() * 1000));
         }
       }
     }

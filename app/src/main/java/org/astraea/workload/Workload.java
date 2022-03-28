@@ -11,4 +11,12 @@ public interface Workload {
    * @param argument a string argument for this workflow
    */
   void run(String bootstrapServer, String argument) throws InterruptedException;
+
+  /**
+   * Explain the workload argument format
+   * @return a string describe the format of the workflow argument
+   */
+  default String explainArgument() {
+    return "The author refuse to explain :3";
+  }
 }

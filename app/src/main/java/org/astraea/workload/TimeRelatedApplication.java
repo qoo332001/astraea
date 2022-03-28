@@ -32,6 +32,11 @@ public class TimeRelatedApplication {
         }
       }
     }
+
+    @Override
+    public String explainArgument() {
+      return "(data size),[topic 1]:[topic 2]:[topic 3]...";
+    }
   }
 
   public static class Consumer implements Workload {
@@ -51,6 +56,11 @@ public class TimeRelatedApplication {
           final Collection<Record<byte[], byte[]>> poll = build.poll(Duration.ofSeconds(1));
         }
       }
+    }
+
+    @Override
+    public String explainArgument() {
+      return "(consumer group name),[topic 1]:[topic 2]:[topic 3]...";
     }
   }
 }

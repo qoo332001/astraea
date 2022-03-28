@@ -9,10 +9,8 @@ import org.astraea.Utils;
 public class WorkloadApp {
 
   public static void main(String[] args) throws InterruptedException {
-    if(args.length == 0)
-        explain();
-    else
-        execute(args);
+    if (args.length == 0) explain();
+    else execute(args);
   }
 
   public static void execute(String... args) {
@@ -53,22 +51,27 @@ public class WorkloadApp {
   }
 
   static void explain() {
-      // no DI so let's do thing the hard way.
-      List<Class<?>> classes = List.of(
-              RealtimeApplication.Producer.class,
-              TimeRelatedApplication.Producer.class,
-              TimeRelatedApplication.Consumer.class,
-              OfflineLogProcessingApplication.Producer.class,
-              OfflineLogProcessingApplication.Consumer.class);
+    // no DI so let's do thing the hard way.
+    List<Class<?>> classes =
+        List.of(
+            RealtimeApplication.Producer.class,
+            TimeRelatedApplication.Producer.class,
+            TimeRelatedApplication.Consumer.class,
+            OfflineLogProcessingApplication.Producer.class,
+            OfflineLogProcessingApplication.Consumer.class);
 
-      int maxClassNameSize = classes.stream().map(Class::getName).mapToInt(String::length).max().orElse(0);
+    int maxClassNameSize =
+        classes.stream().map(Class::getName).mapToInt(String::length).max().orElse(0);
 
-      var format = "%-" + maxClassNameSize + "s   %s%n";
-      System.out.printf(format, "[ClassName]", "[Argument Format]");
-      for (Class<?> aClass : classes) {
-          var instance = Utils.handleException(() -> (Workload) aClass.getConstructor().newInstance());
-          System.out.printf(format, aClass.getName(), instance.explainArgument());
-      }
+    System.out.println(
+        "Argument: (bootstrap.servers) [(workload 0 classpath) (workload 0 argument)]...");
+    System.out.println();
+
+    var format = "%-" + maxClassNameSize + "s   %s%n";
+    System.out.printf(format, "[ClassName]", "[Argument Format]");
+    for (Class<?> aClass : classes) {
+      var instance = Utils.handleException(() -> (Workload) aClass.getConstructor().newInstance());
+      System.out.printf(format, aClass.getName(), instance.explainArgument());
+    }
   }
-
 }

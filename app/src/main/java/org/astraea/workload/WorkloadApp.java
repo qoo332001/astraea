@@ -31,5 +31,13 @@ public class WorkloadApp {
             .collect(Collectors.toList());
 
     threads.forEach(Thread::start);
+
+    Utils.handleException(
+        () -> {
+          for (Thread thread : threads) {
+            thread.join();
+          }
+          return true;
+        });
   }
 }

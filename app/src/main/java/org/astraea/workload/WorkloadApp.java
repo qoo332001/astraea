@@ -60,6 +60,8 @@ public class WorkloadApp {
             TimeRelatedApplication.Consumer.class,
             OfflineLogProcessingApplication.Producer.class,
             OfflineLogProcessingApplication.Consumer.class,
+            BurstLoading.Producer.class,
+            BurstLoading.Consumer.class,
             HotKeyApplication.Producer.class,
             HotKeyApplication.Consumer.class);
 

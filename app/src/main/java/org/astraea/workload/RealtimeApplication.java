@@ -9,7 +9,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 public class RealtimeApplication {
   public static class Producer implements Workload {
-    /** @param argument topicName:Producers */
+    /** @param argument topicName */
     @Override
     public void run(String bootstrapServer, String argument) {
       final String[] split = argument.split(":");
@@ -18,12 +18,16 @@ public class RealtimeApplication {
           org.astraea.producer.Producer.of(bootstrapServer).kafkaProducer();
       while (true) kafkaProducer.send(new ProducerRecord<>(topicName, new byte[10]));
     }
+    @Override
+    public String explainArgument() {
+      return "(topic name)";
+    }
   }
 
   public static class Consumer implements Workload {
     /**
      * @param bootstrapServer
-     * @param argument topicName:Consumers
+     * @param argument topicName
      */
     @Override
     public void run(String bootstrapServer, String argument) {
@@ -41,8 +45,11 @@ public class RealtimeApplication {
         kafkaConsumer.poll(Duration.ofSeconds(1L));
       }
     }
+    @Override
+    public String explainArgument() {
+      return "(topic name)";
+    }
   }
-
   public static void main(String[] args) throws InterruptedException {
     Workload workloadProducer = new RealtimeApplication.Producer();
     workloadProducer.run("192.168.103.39:11300", "test-1:10");

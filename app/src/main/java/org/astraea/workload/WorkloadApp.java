@@ -26,7 +26,13 @@ public class WorkloadApp {
                       Utils.handleException(
                           () -> (Workload) classObject.getConstructor().newInstance());
                   var argument = arguments.get(index * 2 + 1);
-                  return new Thread(() -> classInstance.run(bootstrapServer, argument));
+                  return new Thread(() -> {
+                      try {
+                          classInstance.run(bootstrapServer, argument);
+                      } catch (InterruptedException e) {
+                          System.err.println("Thread has been interrupted");
+                      }
+                  });
                 })
             .collect(Collectors.toList());
 

@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.astraea.utils.DataSize;
 
 public class OfflineLogProcessingApplication {
 
@@ -17,7 +18,7 @@ public class OfflineLogProcessingApplication {
     @Override
     public void run(String bootstrapServer, String argument) {
       var shit = argument.split(":");
-      var size = Integer.parseInt(shit[0]);
+      var size = new DataSize.Field().convert(shit[0]).bits().longValue() / 8;
 
       try (var kafkaProducer = org.astraea.producer.Producer.of(bootstrapServer).kafkaProducer()) {
         while (!Thread.currentThread().isInterrupted()) {
@@ -34,6 +35,11 @@ public class OfflineLogProcessingApplication {
           }
         }
       }
+    }
+
+    @Override
+    public String explainArgument() {
+      return "(data size):(topic name prefix)";
     }
   }
 
@@ -74,6 +80,11 @@ public class OfflineLogProcessingApplication {
           break;
         }
       }
+    }
+
+    @Override
+    public String explainArgument() {
+      return "(consumer group name):(topic name prefix)";
     }
   }
 }

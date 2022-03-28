@@ -1,6 +1,7 @@
 package org.astraea.workload;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.Utils;
@@ -8,7 +9,10 @@ import org.astraea.Utils;
 public class WorkloadApp {
 
   public static void main(String[] args) throws InterruptedException {
-    execute(args);
+    if(args.length == 0)
+        explain();
+    else
+        execute(args);
   }
 
   public static void execute(String... args) {
@@ -26,13 +30,14 @@ public class WorkloadApp {
                       Utils.handleException(
                           () -> (Workload) classObject.getConstructor().newInstance());
                   var argument = arguments.get(index * 2 + 1);
-                  return new Thread(() -> {
-                      try {
+                  return new Thread(
+                      () -> {
+                        try {
                           classInstance.run(bootstrapServer, argument);
-                      } catch (InterruptedException e) {
+                        } catch (InterruptedException e) {
                           System.err.println("Thread has been interrupted");
-                      }
-                  });
+                        }
+                      });
                 })
             .collect(Collectors.toList());
 
@@ -46,4 +51,24 @@ public class WorkloadApp {
           return true;
         });
   }
+
+  static void explain() {
+      // no DI so let's do thing the hard way.
+      List<Class<?>> classes = List.of(
+              RealtimeApplication.Producer.class,
+              TimeRelatedApplication.Producer.class,
+              TimeRelatedApplication.Consumer.class,
+              OfflineLogProcessingApplication.Producer.class,
+              OfflineLogProcessingApplication.Consumer.class);
+
+      int maxClassNameSize = classes.stream().map(Class::getName).mapToInt(String::length).max().orElse(0);
+
+      var format = "%-" + maxClassNameSize + "s   %s%n";
+      System.out.printf(format, "[ClassName]", "[Argument Format]");
+      for (Class<?> aClass : classes) {
+          var instance = Utils.handleException(() -> (Workload) aClass.getConstructor().newInstance());
+          System.out.printf(format, aClass.getName(), instance.explainArgument());
+      }
+  }
+
 }

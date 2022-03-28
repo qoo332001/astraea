@@ -18,6 +18,7 @@ public class RealtimeApplication {
           org.astraea.producer.Producer.of(bootstrapServer).kafkaProducer();
       while (true) kafkaProducer.send(new ProducerRecord<>(topicName, new byte[10]));
     }
+
     @Override
     public String explainArgument() {
       return "(topic name)";
@@ -45,11 +46,13 @@ public class RealtimeApplication {
         kafkaConsumer.poll(Duration.ofSeconds(1L));
       }
     }
+
     @Override
     public String explainArgument() {
       return "(topic name)";
     }
   }
+
   public static void main(String[] args) throws InterruptedException {
     Workload workloadProducer = new RealtimeApplication.Producer();
     workloadProducer.run("192.168.103.39:11300", "test-1:10");

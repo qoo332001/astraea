@@ -67,6 +67,7 @@ public class BurstLoading {
         TimeUnit.MILLISECONDS.sleep(timeWait);
       }
     }
+
     @Override
     public String explainArgument() {
       return "(topic name)";
@@ -129,6 +130,7 @@ public class BurstLoading {
         TimeUnit.MILLISECONDS.sleep(1000);
       }
     }
+
     @Override
     public String explainArgument() {
       return "(topic name),(group id)";

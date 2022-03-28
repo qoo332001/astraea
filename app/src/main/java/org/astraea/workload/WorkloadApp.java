@@ -55,6 +55,7 @@ public class WorkloadApp {
     List<Class<?>> classes =
         List.of(
             RealtimeApplication.Producer.class,
+            RealtimeApplication.Consumer.class,
             TimeRelatedApplication.Producer.class,
             TimeRelatedApplication.Consumer.class,
             OfflineLogProcessingApplication.Producer.class,

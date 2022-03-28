@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.astraea.consumer.Record;
 import org.astraea.utils.DataSize;
-import org.astraea.utils.DataUnit;
 
 public class TimeRelatedApplication {
 
@@ -30,7 +29,6 @@ public class TimeRelatedApplication {
           var topicToSend = topicName[LocalDateTime.now().getMinute() / 10 % topicName.length];
           var valueSize = (int) (positiveGaussian() * payloadSize);
           kafkaProducer.send(new ProducerRecord<>(topicToSend, new byte[valueSize]));
-          System.out.printf("Send %s to %s%n", DataUnit.Byte.of(valueSize), topicToSend);
           TimeUnit.MILLISECONDS.sleep((long) positiveGaussian() * 100L);
         }
       }

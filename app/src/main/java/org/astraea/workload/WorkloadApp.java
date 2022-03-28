@@ -58,7 +58,9 @@ public class WorkloadApp {
             TimeRelatedApplication.Producer.class,
             TimeRelatedApplication.Consumer.class,
             OfflineLogProcessingApplication.Producer.class,
-            OfflineLogProcessingApplication.Consumer.class);
+            OfflineLogProcessingApplication.Consumer.class,
+            HotKeyApplication.Producer.class,
+            HotKeyApplication.Consumer.class);
 
     int maxClassNameSize =
         classes.stream().map(Class::getName).mapToInt(String::length).max().orElse(0);

@@ -14,6 +14,7 @@ public interface Workload {
 
   /**
    * Explain the workload argument format
+   *
    * @return a string describe the format of the workflow argument
    */
   default String explainArgument() {

@@ -26,6 +26,6 @@ public class DummyGenerator implements RebalancePlanGenerator {
   @Override
   public Stream<RebalancePlanProposal> generate(
       ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation) {
-    return Stream.generate(() -> RebalancePlanProposal.builder().noRebalancePlan().build());
+    return Stream.generate(() -> RebalancePlanProposal.builder().build());
   }
 }

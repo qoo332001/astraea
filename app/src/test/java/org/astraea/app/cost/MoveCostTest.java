@@ -30,11 +30,10 @@ import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
-import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.broker.HasCount;
-import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.LogMetrics;
-import org.astraea.app.metrics.jmx.BeanObject;
+import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.partitioner.Configuration;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -53,9 +52,9 @@ class MoveCostTest extends RequireBrokerCluster {
     var logSizeConfigPath = "/tmp/testBrokerSizeProperties";
     OutputStream output = new FileOutputStream(bandwidthConfigPath);
     Properties prop = new Properties();
-    prop.setProperty("broker.0", "1000");
-    prop.setProperty("broker.1", "1000");
-    prop.setProperty("broker.2", "1000");
+    prop.setProperty("broker.0", "100");
+    prop.setProperty("broker.1", "100");
+    prop.setProperty("broker.2", "100");
     prop.store(output, null);
     OutputStream output2 = new FileOutputStream(logSizeConfigPath);
     Properties prop2 = new Properties();
@@ -79,44 +78,44 @@ class MoveCostTest extends RequireBrokerCluster {
 
     var fakeBeanObjectByteIn1 =
         fakeBrokerBeanObject(
-            "BrokerTopicMetrics", KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), 1000, 1000);
+            "BrokerTopicMetrics", ServerMetrics.Topic.BYTES_IN_PER_SEC.metricName(), 1000, 1000);
     var fakeBeanObjectByteIn2 =
         fakeBrokerBeanObject(
             "BrokerTopicMetrics",
-            KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(),
+            ServerMetrics.Topic.BYTES_IN_PER_SEC.metricName(),
             100000000,
             10000);
     var fakeBeanObjectByteOut1 =
         fakeBrokerBeanObject(
-            "BrokerTopicMetrics", KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), 1000, 1000);
+            "BrokerTopicMetrics", ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName(), 1000, 1000);
     var fakeBeanObjectByteOut2 =
         fakeBrokerBeanObject(
             "BrokerTopicMetrics",
-            KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(),
+            ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName(),
             100000000,
             10000);
     var fakeBeanObjectReplicationByteIn1 =
         fakeBrokerBeanObject(
             "BrokerTopicMetrics",
-            KafkaMetrics.BrokerTopic.ReplicationBytesInPerSec.metricName(),
+            ServerMetrics.Topic.REPLICATION_BYTES_IN_PER_SEC.metricName(),
             1000,
             1000);
     var fakeBeanObjectReplicationByteIn2 =
         fakeBrokerBeanObject(
             "BrokerTopicMetrics",
-            KafkaMetrics.BrokerTopic.ReplicationBytesInPerSec.metricName(),
+            ServerMetrics.Topic.REPLICATION_BYTES_IN_PER_SEC.metricName(),
             100000000,
             10000);
     var fakeBeanObjectReplicationByteOut1 =
         fakeBrokerBeanObject(
             "BrokerTopicMetrics",
-            KafkaMetrics.BrokerTopic.ReplicationBytesOutPerSec.metricName(),
+            ServerMetrics.Topic.REPLICATION_BYTES_OUT_PER_SEC.metricName(),
             1000,
             1000);
     var fakeBeanObjectReplicationByteOut2 =
         fakeBrokerBeanObject(
             "BrokerTopicMetrics",
-            KafkaMetrics.BrokerTopic.ReplicationBytesOutPerSec.metricName(),
+            ServerMetrics.Topic.REPLICATION_BYTES_OUT_PER_SEC.metricName(),
             100000000,
             10000);
     var replicaSizeBeanObject1 =
@@ -189,7 +188,7 @@ class MoveCostTest extends RequireBrokerCluster {
   void testBrokerTrafficMetrics() {
     var brokerTraffic =
         moveCost.brokerTrafficMetrics(
-            clusterBean, KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), duration);
+            clusterBean, ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName(), duration);
     Assertions.assertEquals(
         brokerTraffic.get(0), (100000000 - 1000) / 1024.0 / 1024.0 / ((10000.0 - 1000.0) / 1000));
   }
@@ -246,7 +245,7 @@ class MoveCostTest extends RequireBrokerCluster {
   }
 
   @Test
-  void checkFolderSize() {
+  void testCheckFolderSize() {
     var tprList =
         List.of(
             TopicPartitionReplica.of("test-1", 0, 0),
@@ -283,27 +282,31 @@ class MoveCostTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testEstimatedMigrateTime() {
+    var time = moveCost.estimatedMigrateTime(originClusterInfo(), newClusterInfo(), clusterBean);
+    Assertions.assertEquals(0.07275465003261834, time);
+  }
+
+  @Test
   void testClusterCost() {
     var score = moveCost.clusterCost(originClusterInfo(), newClusterInfo(), clusterBean).value();
     Assertions.assertEquals(score, 0.2622827348460017);
   }
 
-  private static HasValue fakePartitionBeanObject(
+  private static LogMetrics.Log.Meter fakePartitionBeanObject(
       String type, String name, String topic, String partition, long size, long time) {
-    BeanObject beanObject =
+    return new LogMetrics.Log.Meter(
         new BeanObject(
             "kafka.log",
             Map.of("name", name, "type", type, "topic", topic, "partition", partition),
             Map.of("Value", size),
-            time);
-    return HasValue.of(beanObject);
+            time));
   }
 
   private static HasCount fakeBrokerBeanObject(String type, String name, long count, long time) {
-    BeanObject beanObject =
+    return new ServerMetrics.Topic.Meter(
         new BeanObject(
-            "kafka.server", Map.of("type", type, "name", name), Map.of("Count", count), time);
-    return HasCount.of(beanObject);
+            "kafka.server", Map.of("type", type, "name", name), Map.of("Count", count), time));
   }
 
   private ClusterInfo originClusterInfo() {

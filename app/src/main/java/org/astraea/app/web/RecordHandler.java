@@ -136,28 +136,23 @@ public class RecordHandler implements Handler {
         .map(Long::parseLong)
         .ifPresent(
             distanceFromLatest ->
-                consumerBuilder.seekStrategy(
+                consumerBuilder.seek(
                     Builder.SeekStrategy.DISTANCE_FROM_LATEST, distanceFromLatest));
 
     Optional.ofNullable(queries.get(DISTANCE_FROM_BEGINNING))
         .map(Long::parseLong)
         .ifPresent(
             distanceFromBeginning ->
-                consumerBuilder.seekStrategy(
+                consumerBuilder.seek(
                     Builder.SeekStrategy.DISTANCE_FROM_BEGINNING, distanceFromBeginning));
 
     Optional.ofNullable(queries.get(SEEK_TO))
         .map(Long::parseLong)
-        .ifPresent(seekTo -> consumerBuilder.seekStrategy(Builder.SeekStrategy.SEEK_TO, seekTo));
+        .ifPresent(seekTo -> consumerBuilder.seek(Builder.SeekStrategy.SEEK_TO, seekTo));
 
     try (var consumer = consumerBuilder.build()) {
       var limit = Integer.parseInt(queries.getOrDefault(LIMIT, "1"));
-      return new Records(
-          consumer.poll(limit, timeout).stream()
-              .map(Record::new)
-              // TODO: remove limit here (https://github.com/skiptests/astraea/issues/441)
-              .limit(limit)
-              .collect(toList()));
+      return new Records(consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
     }
   }
 

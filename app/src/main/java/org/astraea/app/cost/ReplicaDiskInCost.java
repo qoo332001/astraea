@@ -61,12 +61,15 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
     var brokerLoad =
         clusterInfo.nodes().stream()
             .map(
-                node ->
-                    Map.entry(
+                node ->{
+                    if (partitionCost.value(node.id()).containsValue(-1.0))
+                      return Map.entry(node.id(),-1.0);
+                    return Map.entry(
                         node.id(),
                         partitionCost.value(node.id()).values().stream()
                             .mapToDouble(rate -> rate)
-                            .sum()))
+                            .sum());
+  })
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return () -> brokerLoad;
   }

@@ -61,7 +61,7 @@ public class BalancerExperimentMain {
                 BalancerConfigs.BALANCER_PLAN_SEARCHING_ITERATION,
                 "10000",
                 "shuffle.plan.generator.shuffle.min",
-                "3",
+                "10",
                 "shuffle.plan.generator.shuffle.max",
                 "30",
                 BalancerConfigs.BALANCER_COST_FUNCTIONS,

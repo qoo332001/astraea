@@ -51,7 +51,8 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
     // when retention occur, brokerCost will be set to -1 , and return a big score to reject this
     // plan.
     if (brokerCost.containsValue(-1.0)) return () -> OVERFLOW_SCORE;
-    return () -> dispersion.calculate(brokerCost.values());
+    var a=  dispersion.calculate(brokerCost.values());
+    return () -> a;
   }
 
   @Override

@@ -283,7 +283,14 @@ public final class Utils {
       Class<T> metricSourceClass,
       Configuration configuration,
       Collection<IdentifiedFetcher> metricOwnership) {
-    return constructModule(metricSourceClass, configuration);
+    try {
+      // case 0: create cost function by configuration
+      var constructor = metricSourceClass.getConstructor(Configuration.class, Collection.class);
+      return Utils.packException(() -> constructor.newInstance(configuration,metricOwnership));
+    } catch (NoSuchMethodException e) {
+      // case 1: create cost function by empty constructor
+      return Utils.packException(() -> metricSourceClass.getConstructor().newInstance());
+    }
   }
 
   public static double averageMB(Duration duration, long value) {

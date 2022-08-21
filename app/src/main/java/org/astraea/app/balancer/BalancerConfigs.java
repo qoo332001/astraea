@@ -59,6 +59,8 @@ public class BalancerConfigs implements Configuration {
   public static final String BALANCER_REBALANCE_PLAN_EXECUTOR = "balancer.rebalance.plan.executor";
   public static final String BALANCER_PLAN_SEARCHING_ITERATION =
       "balancer.plan.searching.iteration";
+  public static final String BALANCER_PLAN_MIGRATE_COST_ITERATION =
+          "balancer.plan.migrate.cost.iteration";
   public static final String BALANCER_RUN_COUNT = "balancer.run.count";
 
   private final Configuration configuration;
@@ -181,6 +183,13 @@ public class BalancerConfigs implements Configuration {
   @Config(key = BALANCER_PLAN_SEARCHING_ITERATION)
   public int rebalancePlanSearchingIteration() {
     int val = string(BALANCER_PLAN_SEARCHING_ITERATION).map(Integer::parseInt).orElse(2000);
+    assertion("value should be a positive integer", val > 0);
+    return val;
+  }
+
+  @Config(key = BALANCER_PLAN_MIGRATE_COST_ITERATION)
+  public int balancerPlanMigrateCostIteration() {
+    int val = string(BALANCER_PLAN_MIGRATE_COST_ITERATION).map(Integer::parseInt).orElse(400);
     assertion("value should be a positive integer", val > 0);
     return val;
   }

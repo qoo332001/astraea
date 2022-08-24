@@ -18,8 +18,10 @@ package org.astraea.app.cost;
 
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
@@ -60,12 +62,15 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
     var brokerLoad =
         clusterInfo.nodes().stream()
             .map(
-                node ->
-                    Map.entry(
-                        node.id(),
-                        partitionCost.value(node.id()).values().stream()
-                            .mapToDouble(rate -> rate)
-                            .sum()))
+                node -> {
+                  if (partitionCost.value(node.id()).containsValue(-1.0))
+                    return Map.entry(node.id(), -1.0);
+                  return Map.entry(
+                      node.id(),
+                      partitionCost.value(node.id()).values().stream()
+                          .mapToDouble(rate -> rate)
+                          .sum());
+                })
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return () -> brokerLoad;
   }
@@ -183,6 +188,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
                   LogMetrics.Log.gauges(metrics.getValue(), LogMetrics.Log.SIZE).stream()
                       .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
                       .collect(Collectors.toUnmodifiableList());
+              var retentionCheck = retentionCheck(sizeTimeSeries);
               var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow();
               var windowSize =
                   sizeTimeSeries.stream()
@@ -202,9 +208,19 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
                           / 1000);
               // when retention occur, set all data rate to -1.
-              if (dataRate < 0) dataRate = -1.0;
+              if (retentionCheck) dataRate = -1.0;
               return Map.entry(metrics.getKey(), dataRate);
             })
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  static boolean retentionCheck(List<LogMetrics.Log.Gauge> sizeTimeSeries) {
+    var retentionOccur = new AtomicBoolean(false);
+    var lastBeanObject = sizeTimeSeries.iterator().next();
+    for (var beanObject : sizeTimeSeries) {
+      if (beanObject.value() < lastBeanObject.value()) retentionOccur.set(true);
+      lastBeanObject = beanObject;
+    }
+    return retentionOccur.get();
   }
 }

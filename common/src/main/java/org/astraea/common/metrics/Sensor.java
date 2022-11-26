@@ -27,10 +27,10 @@ public interface Sensor<V> {
   /**
    * Get the statistic by the given `metricName`.
    *
-   * @param metricName key to get the measurement
+   * @param name key to get the measurement
    * @return the value calculated by the corresponding `Stat`
    */
-  V measure(String metricName);
+  V measure(String name);
 
   Map<String, Stat<V>> metrics();
 }

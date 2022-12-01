@@ -94,6 +94,7 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       try (var collector = MetricCollector.builder().interval(interval).build()) {
+        var costFunction = new ReplicaDiskInCost();
         // create come partition to get metrics
         admin
             .creator()
@@ -109,31 +110,24 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
             .toCompletableFuture()
             .join();
         collector.addFetcher(
-            new ReplicaDiskInCost().fetcher().orElseThrow(),
-            (id, err) -> Assertions.fail(err.getMessage()));
+            costFunction.fetcher().orElseThrow(), (id, err) -> Assertions.fail(err.getMessage()));
         collector.registerLocalJmx(0);
-        collector.addSensors(
-            Map.of(
-                LogMetrics.Log.SIZE.metricName(),
-                Map.of(
-                    TopicPartitionReplica.of(topicName, 0, 0),
-                        new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build(),
-                    TopicPartitionReplica.of(topicName, 1, 0),
-                        new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build(),
-                    TopicPartitionReplica.of(topicName, 2, 0),
-                        new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build(),
-                    TopicPartitionReplica.of(topicName, 3, 0),
-                        new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build())));
+        var tpr =
+            List.of(
+                TopicPartitionReplica.of(topicName, 0, 0),
+                TopicPartitionReplica.of(topicName, 1, 0),
+                TopicPartitionReplica.of(topicName, 2, 0),
+                TopicPartitionReplica.of(topicName, 3, 0));
+        collector.addSensors(costFunction.sensors());
+        collector.sensor(LogMetrics.Log.Gauge.class).addSensorKey(tpr);
         Utils.sleep(interval);
         Assertions.assertEquals(
-            170,
+            170.0,
             collector
-                .sensors()
-                .get(LogMetrics.Log.SIZE.metricName())
-                .get(TopicPartitionReplica.of(topicName, 0, 0))
+                .sensor(LogMetrics.Log.Gauge.class)
+                .sensor(TopicPartitionReplica.of(topicName, 0, 0))
                 .measure(Avg.AVG_KEY));
-        Assertions.assertEquals(
-            4, collector.sensors().get(LogMetrics.Log.SIZE.metricName()).size());
+        Assertions.assertEquals(4, collector.sensor(LogMetrics.Log.Gauge.class).sensors().size());
         var currentMetricsNum = collector.clusterBean().all().get(0).size();
         Assertions.assertFalse(collector.listIdentities().isEmpty());
         Assertions.assertFalse(collector.listFetchers().isEmpty());
@@ -142,21 +136,12 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
         Utils.sleep(interval);
         Assertions.assertTrue(collector.clusterBean().all().get(0).size() > currentMetricsNum);
         Assertions.assertEquals(
-            170,
+            170.0,
             collector
-                .sensors()
-                .get(LogMetrics.Log.SIZE.metricName())
-                .get(TopicPartitionReplica.of(topicName, 0, 0))
+                .sensor(LogMetrics.Log.Gauge.class)
+                .sensor(TopicPartitionReplica.of(topicName, 0, 0))
                 .measure(Avg.AVG_KEY));
-        // Test the fetched object's type, and its metric name.
-        Assertions.assertTrue(
-            collector.metrics(LogMetrics.Log.Gauge.class, 0, 0).stream()
-                .allMatch(
-                    o ->
-                        (o != null)
-                            && (LogMetrics.Log.SIZE
-                                .metricName()
-                                .equals(o.beanObject().properties().get("name")))));
+
       } catch (ExecutionException e) {
         throw new RuntimeException(e);
       }

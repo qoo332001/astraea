@@ -17,6 +17,9 @@
 package org.astraea.common.cost;
 
 import java.time.Duration;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -26,10 +29,13 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.SensorBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensors;
 import org.astraea.common.metrics.stats.Avg;
 
 public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
@@ -101,11 +107,57 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
   }
 
   @Override
-  public Map<String, Sensor<Double>> sensors() {
-    return Map.of(
-        LogMetrics.Log.SIZE.metricName(),
-        new SensorBuilder<Double>()
-            .addStat(Avg.EXP_WEIGHT_BY_TIME_KEY, Avg.expWeightByTime(Duration.ofSeconds(1)))
-            .build());
+  public Collection<MetricSensors<?>> sensors() {
+    return List.of(
+        new MetricSensors<TopicPartitionReplica>() {
+          final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
+
+          @Override
+          public Class<? extends HasBeanObject> metricClass() {
+            return LogMetrics.Log.Gauge.class;
+          }
+
+          @Override
+          public void record(int identity, Collection<? extends HasBeanObject> beans) {
+            beans.forEach(
+                bean -> {
+                  var metricName = bean.beanObject().properties().get("name");
+                  // && metricName.equals(metricClass().toString()))
+                  if (metricName != null)
+                    if (bean.beanObject().domainName().equals(LogMetrics.DOMAIN_NAME)
+                        && bean.beanObject().properties().get("type").equals(LogMetrics.LOG_TYPE))
+                      sensors
+                          .get(
+                              TopicPartitionReplica.of(
+                                  bean.beanObject().properties().get("topic"),
+                                  Integer.parseInt(bean.beanObject().properties().get("partition")),
+                                  identity))
+                          .record(
+                              Double.valueOf(
+                                  bean.beanObject().attributes().get("Value").toString()));
+                });
+          }
+
+          @Override
+          public Map<TopicPartitionReplica, Sensor<Double>> sensors() {
+            return this.sensors;
+          }
+
+          @Override
+          public Sensor<Double> sensor(TopicPartitionReplica key) {
+            return sensors.get(key);
+          }
+
+          @Override
+          public void addSensorKey(List<?> e) {
+            e.forEach(
+                tpr ->
+                    sensors.put(
+                        (TopicPartitionReplica) tpr,
+                        new SensorBuilder<Double>()
+                            .addStat(Avg.EXP_WEIGHT_BY_TIME_KEY, Avg.expWeightByTime(Duration.ofSeconds(1)))
+                            .build()));
+          }
+        });
   }
 }

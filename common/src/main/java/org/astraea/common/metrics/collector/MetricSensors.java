@@ -17,19 +17,18 @@
 package org.astraea.common.metrics.collector;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.Sensor;
 
-public interface MetricSensors<T> {
-  Class<? extends HasBeanObject> metricClass();
+@FunctionalInterface
+public interface MetricSensors {
 
-  void record(int identity, Collection<? extends HasBeanObject> beans);
-
-  Map<T, Sensor<Double>> sensors();
-
-  Sensor<Double> sensor(T key);
-
-  void addSensorKey(List<?> e);
+  /**
+   * @param identity broker id or producer/consumer id
+   * @param beans a collection of {@link HasBeanObject}
+   * @return The collection of "HasBeanObject" generated after the custom statistical method of
+   *     CostFunction.
+   */
+  Map<Integer, Collection<? extends HasBeanObject>> record(
+      int identity, Collection<? extends HasBeanObject> beans);
 }

@@ -70,6 +70,7 @@ public interface ClusterBean {
       public Map<TopicPartitionReplica, Double> statisticsByReplica(
           String metricsName, String statName) {
         return sensors.get(metricsName).entrySet().stream()
+            .filter(sensor -> sensor.getKey() instanceof TopicPartitionReplica)
             .map(
                 sensor ->
                     Map.entry(
@@ -80,7 +81,8 @@ public interface ClusterBean {
 
       @Override
       public Map<Integer, Double> statisticsByNode(String metricsName, String statName) {
-        return sensors.get(metricsName).entrySet().stream()
+        return sensors.getOrDefault(metricsName, Map.of()).entrySet().stream()
+            .filter(sensor -> sensor.getKey() instanceof Integer)
             .map(
                 sensor ->
                     Map.entry(

@@ -16,7 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +29,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.SensorBuilder;
@@ -107,57 +107,79 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
   }
 
   @Override
-  public Collection<MetricSensors<?>> sensors() {
+  public Collection<MetricSensors> sensors() {
     return List.of(
-        new MetricSensors<TopicPartitionReplica>() {
+        new MetricSensors() {
           final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
 
           @Override
-          public Class<? extends HasBeanObject> metricClass() {
-            return LogMetrics.Log.Gauge.class;
-          }
-
-          @Override
-          public void record(int identity, Collection<? extends HasBeanObject> beans) {
+          public Map<Integer, Collection<? extends HasBeanObject>> record(
+              int identity, Collection<? extends HasBeanObject> beans) {
+            var statisticalBeans = new HashMap<TopicPartitionReplica, HasBeanObject>();
             beans.forEach(
                 bean -> {
-                  var metricName = bean.beanObject().properties().get("name");
-                  // && metricName.equals(metricClass().toString()))
-                  if (metricName != null)
+                  if (bean != null) {
                     if (bean.beanObject().domainName().equals(LogMetrics.DOMAIN_NAME)
-                        && bean.beanObject().properties().get("type").equals(LogMetrics.LOG_TYPE))
+                        && bean.beanObject().properties().get("type").equals(LogMetrics.LOG_TYPE)) {
+                      var tpr =
+                          TopicPartitionReplica.of(
+                              bean.beanObject().properties().get("topic"),
+                              Integer.parseInt(bean.beanObject().properties().get("partition")),
+                              identity);
                       sensors
-                          .get(
-                              TopicPartitionReplica.of(
-                                  bean.beanObject().properties().get("topic"),
-                                  Integer.parseInt(bean.beanObject().properties().get("partition")),
-                                  identity))
+                          .computeIfAbsent(
+                              tpr,
+                              ignore ->
+                                  new SensorBuilder<Double>()
+                                      .addStat(Avg.AVG_KEY, Avg.of())
+                                      .build())
                           .record(
                               Double.valueOf(
                                   bean.beanObject().attributes().get("Value").toString()));
+                      statisticalBeans.put(tpr, bean);
+                    }
+                  }
                 });
-          }
-
-          @Override
-          public Map<TopicPartitionReplica, Sensor<Double>> sensors() {
-            return this.sensors;
-          }
-
-          @Override
-          public Sensor<Double> sensor(TopicPartitionReplica key) {
-            return sensors.get(key);
-          }
-
-          @Override
-          public void addSensorKey(List<?> e) {
-            e.forEach(
-                tpr ->
-                    sensors.put(
-                        (TopicPartitionReplica) tpr,
-                        new SensorBuilder<Double>()
-                            .addStat(Avg.EXP_WEIGHT_BY_TIME_KEY, Avg.expWeightByTime(Duration.ofSeconds(1)))
-                            .build()));
+            return Map.of(
+                identity,
+                sensors.entrySet().stream()
+                    .map(
+                        sensor -> {
+                          var bean = statisticalBeans.get(sensor.getKey()).beanObject();
+                          return new SizeStatisticalBean(
+                              new BeanObject(
+                                  bean.domainName(),
+                                  bean.properties(),
+                                  Map.of("Value", sensor.getValue().measure(Avg.AVG_KEY)),
+                                  bean.createdTimestamp()));
+                        })
+                    .collect(Collectors.toList()));
           }
         });
+  }
+
+  public static class SizeStatisticalBean implements HasBeanObject {
+    BeanObject beanObject;
+
+    SizeStatisticalBean(BeanObject beanObject) {
+      this.beanObject = beanObject;
+    }
+
+    @Override
+    public BeanObject beanObject() {
+      return beanObject;
+    }
+
+    public String topic() {
+      return beanObject().properties().get("topic");
+    }
+
+    public int partition() {
+      return Integer.parseInt(beanObject().properties().get("partition"));
+    }
+
+    public double value() {
+      return Double.parseDouble(beanObject().attributes().get("Value").toString());
+    }
   }
 }

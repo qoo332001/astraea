@@ -118,16 +118,22 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
                 TopicPartitionReplica.of(topicName, 1, 0),
                 TopicPartitionReplica.of(topicName, 2, 0),
                 TopicPartitionReplica.of(topicName, 3, 0));
-        collector.addSensors(costFunction.sensors());
-        collector.sensor(LogMetrics.Log.Gauge.class).addSensorKey(tpr);
+        costFunction.sensors().forEach(collector::addMetricSensors);
+        Utils.sleep(interval);
         Utils.sleep(interval);
         Assertions.assertEquals(
             170.0,
-            collector
-                .sensor(LogMetrics.Log.Gauge.class)
-                .sensor(TopicPartitionReplica.of(topicName, 0, 0))
-                .measure(Avg.AVG_KEY));
-        Assertions.assertEquals(4, collector.sensor(LogMetrics.Log.Gauge.class).sensors().size());
+            collector.clusterBean().all().get(0).stream()
+                .filter(x -> x instanceof ReplicaDiskInCost.SizeStatisticalBean)
+                .map(x -> (ReplicaDiskInCost.SizeStatisticalBean) x)
+                .filter(x -> x.topic().equals(topicName))
+                .filter(x -> (x.partition() == 0))
+                .findFirst()
+                .orElseThrow()
+                .value());
+
+        Assertions.assertEquals(1, collector.listMetricsSensors().size());
+
         var currentMetricsNum = collector.clusterBean().all().get(0).size();
         Assertions.assertFalse(collector.listIdentities().isEmpty());
         Assertions.assertFalse(collector.listFetchers().isEmpty());
@@ -137,10 +143,14 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
         Assertions.assertTrue(collector.clusterBean().all().get(0).size() > currentMetricsNum);
         Assertions.assertEquals(
             170.0,
-            collector
-                .sensor(LogMetrics.Log.Gauge.class)
-                .sensor(TopicPartitionReplica.of(topicName, 0, 0))
-                .measure(Avg.AVG_KEY));
+            collector.clusterBean().all().get(0).stream()
+                .filter(x -> x instanceof ReplicaDiskInCost.SizeStatisticalBean)
+                .map(x -> (ReplicaDiskInCost.SizeStatisticalBean) x)
+                .filter(x -> x.topic().equals(topicName))
+                .filter(x -> (x.partition() == 0))
+                .findFirst()
+                .orElseThrow()
+                .value());
 
       } catch (ExecutionException e) {
         throw new RuntimeException(e);

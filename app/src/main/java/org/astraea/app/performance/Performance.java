@@ -281,11 +281,13 @@ public class Performance {
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .config(ProducerConfigs.PARTITIONER_CLASS_CONFIG, partitioner())
+              .config(ProducerConfigs.ACKS_CONFIG,"0")
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .config(ProducerConfigs.PARTITIONER_CLASS_CONFIG, partitioner())
+              .config(ProducerConfigs.ACKS_CONFIG,"0")
               .build();
     }
 

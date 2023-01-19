@@ -20,6 +20,8 @@ import java.util.concurrent.TimeUnit;
 import org.astraea.common.metrics.HasBeanObject;
 
 public interface HasRate extends HasBeanObject {
+  String FIF_MIN_RATE_KEY = "fifteen minute rate";
+
   default double meanRate() {
     return (double) beanObject().attributes().getOrDefault("MeanRate", 0);
   }

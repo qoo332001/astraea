@@ -56,6 +56,7 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.PartitionMaxInRateCost;
 import org.astraea.common.cost.RecordSizeCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
@@ -73,7 +74,8 @@ class BalancerHandler implements Handler {
               new ReplicaNumberCost(),
               new ReplicaLeaderCost(),
               new RecordSizeCost(),
-              new ReplicaLeaderSizeCost()));
+              new ReplicaLeaderSizeCost(),
+              new PartitionMaxInRateCost()));
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;
@@ -248,7 +250,13 @@ class BalancerHandler implements Handler {
                 cost.movedRecordSize().entrySet().stream()
                     .collect(
                         Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
+                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
+            new MigrationCost(
+                MOVED_TIME,
+                cost.changedReplicaMaxInRate().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> String.valueOf(e.getKey()), e -> e.getValue().byteRate()))))
         .filter(m -> !m.brokerCosts.isEmpty())
         .collect(Collectors.toList());
   }
@@ -586,6 +594,7 @@ class BalancerHandler implements Handler {
   static final String CHANGED_REPLICAS = "changed replicas";
   static final String CHANGED_LEADERS = "changed leaders";
   static final String MOVED_SIZE = "moved size (bytes)";
+  static final String MOVED_TIME = "moved time (s)";
 
   static class MigrationCost {
     final String name;

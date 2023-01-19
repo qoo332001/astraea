@@ -27,6 +27,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.DataRate;
+import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -37,21 +38,27 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.broker.HasGauge;
+import org.astraea.common.metrics.broker.HasMeter;
+import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Debounce;
 import org.astraea.common.metrics.stats.Max;
 
 /** MoveCost: more max write rate change -> higher migrate cost. */
-public class PartitionMaxInRateCost implements HasMoveCost {
-  private static final String REPLICA_WRITE_RATE = "replica_write_rate";
+public class PartitionMaxInRateCost implements HasMoveCost, HasClusterCost {
+  private static final String REPLICATION_IN_RATE = "replication_in_rate";
+  private static final String REPLICATION_OUT_RATE = "replication_out_rate";
   private static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
   private final Duration duration;
   static final Map<TopicPartitionReplica, Double> lastRecord = new HashMap<>();
   static final Map<TopicPartitionReplica, Duration> lastTime = new HashMap<>();
   static final Map<TopicPartitionReplica, Sensor<Double>> expWeightSensors = new HashMap<>();
-  static final Map<TopicPartitionReplica, Debounce<Double>> denounces = new HashMap<>();
+  static final Map<Integer, Sensor<Double>> maxBrokerReplicationInRate = new HashMap<>();
+  static final Map<Integer, Sensor<Double>> maxBrokerReplicationOutRate = new HashMap<>();
+  static final Map<Integer, Debounce<Double>> denounces = new HashMap<>();
 
   public PartitionMaxInRateCost() {
     this.duration = DEFAULT_DURATION;
@@ -68,7 +75,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
             .map(
                 p ->
                     clusterBean
-                        .replicaMetrics(p, WorseLogRateStatisticalBean.class)
+                        .replicaMetrics(p, MaxReplicationInRateBean.class)
                         .max(Comparator.comparing(HasBeanObject::createdTimestamp))
                         .orElseThrow(
                             () ->
@@ -79,7 +86,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
                     bean ->
                         TopicPartition.of(
                             bean.topicIndex().get(), bean.partitionIndex().get().partition()),
-                    Collectors.mapping(HasGauge::value, Collectors.toList())));
+                    Collectors.mapping(HasRate::fifteenMinuteRate, Collectors.toList())));
     var partitionIn =
         clusterInfo.topicPartitions().stream()
             .collect(
@@ -92,34 +99,17 @@ public class PartitionMaxInRateCost implements HasMoveCost {
                                     .map(Replica::topicPartitionReplica)
                                     .get(),
                                 clusterBean)
-                            .orElse(
-                                maxPartitionRate(
-                                    topicPartition,
-                                    replicaRate.getOrDefault(topicPartition, List.of())))));
+                            .orElse(0.0)));
 
-    if (partitionIn.values().stream().allMatch(x -> x == 0.0))
-      throw new NoSufficientMetricsException(
-          this, Duration.ofSeconds(1), "all topic partitions are currently idle.");
     return partitionIn;
   }
 
   private Optional<Double> statistPartitionRateCount(
       TopicPartitionReplica tpr, ClusterBean clusterBean) {
     return clusterBean
-        .replicaMetrics(tpr, WorseLogRateStatisticalBean.class)
+        .replicaMetrics(tpr, MaxReplicationInRateBean.class)
         .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-        .map(WorseLogRateStatisticalBean::value);
-  }
-
-  double maxPartitionRate(TopicPartition tp, List<Double> size) {
-    if (size.isEmpty())
-      throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), "No metric for " + tp);
-    return size.stream()
-        .max(Comparator.comparing(Function.identity()))
-        .orElseThrow(
-            () ->
-                new NoSufficientMetricsException(
-                    this, Duration.ofSeconds(1), "No metric for " + tp));
+        .map(MaxReplicationInRateBean::fiveMinuteRate);
   }
 
   /**
@@ -127,7 +117,12 @@ public class PartitionMaxInRateCost implements HasMoveCost {
    */
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(LogMetrics.Log.SIZE::fetch);
+    return Fetcher.of(
+        List.of(
+            client -> List.of(ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.fetch(client)),
+            client ->
+                List.of(ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC.fetch(client)),
+            LogMetrics.Log.SIZE::fetch));
   }
 
   @Override
@@ -137,75 +132,113 @@ public class PartitionMaxInRateCost implements HasMoveCost {
             Map.of(
                 identity,
                 beans.stream()
-                    .filter(b -> b instanceof LogMetrics.Log.Gauge)
-                    .map(b -> (LogMetrics.Log.Gauge) b)
-                    .filter(g -> g.type() == LogMetrics.Log.SIZE)
+                    .filter(b -> b instanceof ServerMetrics.BrokerTopic.Meter)
+                    .map(b -> (ServerMetrics.BrokerTopic.Meter) b)
+                    .filter(
+                        g ->
+                            g.type() == ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC
+                                || g.type()
+                                    == ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC)
                     .map(
                         g -> {
-                          var current = Duration.ofMillis(System.currentTimeMillis());
-                          var tpr = TopicPartitionReplica.of(g.topic(), g.partition(), identity);
-                          var size = Double.valueOf(g.value());
-                          var replicaRateSensor =
-                              expWeightSensors.computeIfAbsent(
-                                  tpr,
-                                  ignore ->
-                                      Sensor.builder()
-                                          .addStat(REPLICA_WRITE_RATE, Max.<Double>of())
-                                          .build());
-                          var debounce =
-                              denounces.computeIfAbsent(tpr, ignore -> Debounce.of(duration));
-                          debounce
-                              .record(size, current.toMillis())
-                              .ifPresent(
-                                  debouncedValue -> {
-                                    if (lastTime.containsKey(tpr))
-                                      replicaRateSensor.record(
-                                          (debouncedValue
-                                              - lastRecord.getOrDefault(tpr, 0.0)
-                                                  / (current.getSeconds()
-                                                      - lastTime.get(tpr).getSeconds())));
-                                    lastTime.put(tpr, current);
-                                    lastRecord.put(tpr, debouncedValue);
-                                  });
-                          return (WorseLogRateStatisticalBean)
+                          var fifteenMinRate = g.fifteenMinuteRate();
+                          var maxRateSensor =
+                              g.metricsName()
+                                      .equals(
+                                          ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC
+                                              .metricName())
+                                  ? maxBrokerReplicationInRate.computeIfAbsent(
+                                      identity,
+                                      ignore ->
+                                          Sensor.builder()
+                                              .addStat(REPLICATION_IN_RATE, Max.<Double>of())
+                                              .build())
+                                  : maxBrokerReplicationOutRate.computeIfAbsent(
+                                      identity,
+                                      ignore ->
+                                          Sensor.builder()
+                                              .addStat(REPLICATION_OUT_RATE, Max.<Double>of())
+                                              .build());
+                          maxRateSensor.record(fifteenMinRate);
+                          if (g.metricsName()
+                              .equals(
+                                  ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC
+                                      .metricName()))
+                            return (MaxReplicationInRateBean)
+                                () ->
+                                    new BeanObject(
+                                        g.beanObject().domainName(),
+                                        g.beanObject().properties(),
+                                        Map.of(
+                                            HasRate.FIF_MIN_RATE_KEY,
+                                            maxRateSensor.measure(REPLICATION_IN_RATE)),
+                                        System.currentTimeMillis());
+                          return (MaxReplicationOutRateBean)
                               () ->
                                   new BeanObject(
                                       g.beanObject().domainName(),
                                       g.beanObject().properties(),
                                       Map.of(
-                                          HasGauge.VALUE_KEY,
-                                          replicaRateSensor.measure(REPLICA_WRITE_RATE)),
+                                          HasRate.FIF_MIN_RATE_KEY,
+                                          maxRateSensor.measure(REPLICATION_OUT_RATE)),
                                       System.currentTimeMillis());
                         })
                     .collect(Collectors.toList())));
   }
 
+    public Map<Integer, HasBeanObject> brokerMaxRate(
+            ClusterBean clusterBean,Class<? extends HasBeanObject> metrics) {
+        return
+                clusterBean.all().entrySet().stream()
+                        .map(
+                                (brokerBean) ->
+                                        Map.entry(brokerBean.getKey(),
+                                        clusterBean
+                                                .brokerTopicMetrics(BrokerTopic.of(brokerBean.getKey(),""), metrics)
+                                                .max(Comparator.comparing(HasBeanObject::createdTimestamp))
+                                                .orElseThrow(
+                                                        () ->
+                                                                new NoSufficientMetricsException(
+                                                                        this, Duration.ofSeconds(1), "No metric for " + brokerBean.getKey()))
+                                        ))
+                        .collect(
+                                Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var partitionIn = partitionCost(before, clusterBean);
-    var value =
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .distinct()
-            .parallel()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Function.identity(),
-                    id ->
-                        DataRate.Byte.of(
-                                Math.round(
-                                    Math.max(
-                                        before
-                                            .replicaStream(id)
-                                            .mapToDouble(r -> partitionIn.get(r.topicPartition()))
-                                            .sum(),
-                                        after
-                                            .replicaStream(id)
-                                            .mapToDouble(r -> partitionIn.get(r.topicPartition()))
-                                            .sum())))
-                            .perSecond()));
-    return MoveCost.changedReplicaMaxInRate(value);
+      var brokerInRate =brokerMaxRate(clusterBean,MaxReplicationInRateBean.class)
+              .entrySet()
+              .stream()
+              .map(x->Map.entry(
+                      x.getKey(),
+                      ((MaxReplicationInRateBean)x.getValue()).fiveMinuteRate()
+              ))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      var brokerOutRate =brokerMaxRate(clusterBean,MaxReplicationOutRateBean.class)
+              .entrySet()
+              .stream()
+              .map(x->Map.entry(
+                      x.getKey(),
+                      ((MaxReplicationOutRateBean)x.getValue()).fiveMinuteRate()
+              ))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    return MoveCost.changedReplicaMaxInRate(Map.of());
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    return new ClusterCost() {
+      @Override
+      public double value() {
+        return clusterBean.all().keySet().iterator().next();
+      }
+    };
   }
 
   public interface WorseLogRateStatisticalBean extends HasGauge<Double> {}
+
+  public interface MaxReplicationInRateBean extends HasMeter {}
+
+  public interface MaxReplicationOutRateBean extends HasMeter {}
 }

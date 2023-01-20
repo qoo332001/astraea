@@ -88,8 +88,9 @@ class BalancerHandler implements Handler {
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
   private final Executor schedulingExecutor = Executors.newSingleThreadExecutor();
   private final Function<Integer, Optional<Integer>> jmxPortMapper;
-  private final Duration sampleInterval = Duration.ofSeconds(1);
+  private final Duration sampleInterval = Duration.ofMillis(100);
   MetricCollector collector = MetricCollector.builder().interval(sampleInterval).build();
+  private Long time = 1L;
 
   BalancerHandler(Admin admin) {
     this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor(true));
@@ -275,9 +276,12 @@ class BalancerHandler implements Handler {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
     //try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
+    if (time==1) {
       freshJmxAddresses().forEach(collector::registerJmx);
       fetchers.forEach(collector::addFetcher);
       metricSensors.forEach(collector::addMetricSensors);
+      time++;
+    }
       return execution.apply(collector::clusterBean);
     }
   //}

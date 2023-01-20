@@ -19,8 +19,10 @@ package org.astraea.app.web;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -62,11 +64,13 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.json.TypeRef;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
+  final Supplier<ClusterBean> metricSource = ()-> ClusterBean.of(new HashMap<>());
 
   static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
       HasMoveCost.of(
@@ -184,17 +188,30 @@ class BalancerHandler implements Handler {
                               request.algorithmConfig.clusterCostFunction().fetcher().stream(),
                               request.algorithmConfig.moveCostFunction().fetcher().stream())
                           .collect(Collectors.toUnmodifiableList());
+                  var sensors =
+                          Stream.concat(
+                                          request.algorithmConfig.clusterCostFunction().sensors().stream(),
+                                          request.algorithmConfig.moveCostFunction().sensors().stream())
+                                  .collect(Collectors.toUnmodifiableList());
                   var bestPlan =
                       metricContext(
                           fetchers,
-                          request.algorithmConfig.clusterCostFunction().sensors(),
-                          (metricSource) ->
-                              Balancer.create(
+                         sensors,
+                          (metricSource) ->{
+                            var oldMetrics = this.metricSource.get();
+                            var newMetrics = metricSource.get();
+                            var merge = new HashMap<Integer,List<HasBeanObject>>();
+                            newMetrics.all().forEach(
+                                    (broker,beans)->
+                                            merge.put(broker,Stream.concat(oldMetrics.all().get(broker).stream(),newMetrics.all()).collect(Collectors.toList()) )
+                            );
+                          return  Balancer.create(
                                       request.balancerClasspath,
                                       AlgorithmConfig.builder(request.algorithmConfig)
-                                          .metricSource(metricSource)
+                                          .metricSource(this.metricSource)
                                           .build())
-                                  .retryOffer(currentClusterInfo, request.executionTime));
+                                  .retryOffer(currentClusterInfo, request.executionTime))
+                          };
                   var changes =
                       bestPlan
                           .solution()
@@ -253,10 +270,10 @@ class BalancerHandler implements Handler {
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
             new MigrationCost(
                 MOVED_TIME,
-                cost.changedReplicaMaxInRate().entrySet().stream()
+                cost.brokerMigrateTime().entrySet().stream()
                     .collect(
                         Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> e.getValue().byteRate()))))
+                            e -> String.valueOf(e.getKey()), Map.Entry::getValue))))
         .filter(m -> !m.brokerCosts.isEmpty())
         .collect(Collectors.toList());
   }

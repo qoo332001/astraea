@@ -20,22 +20,24 @@ import java.util.concurrent.TimeUnit;
 import org.astraea.common.metrics.HasBeanObject;
 
 public interface HasRate extends HasBeanObject {
-  String FIF_MIN_RATE_KEY = "fifteen minute rate";
+  String ONE_MIN_RATE_KEY = "OneMinuteRate";
+  String FIVE_MINUTE_RATE = "FiveMinuteRate";
+  String FIFTEEN_MINUTE_RATE = "FifteenMinuteRate";
 
   default double meanRate() {
     return (double) beanObject().attributes().getOrDefault("MeanRate", 0);
   }
 
   default double oneMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("OneMinuteRate", 0);
+    return (double) beanObject().attributes().getOrDefault(ONE_MIN_RATE_KEY, 0);
   }
 
   default double fiveMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("FiveMinuteRate", 0);
+    return (double) beanObject().attributes().getOrDefault(FIVE_MINUTE_RATE, 0.0);
   }
 
   default double fifteenMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("FifteenMinuteRate", 0);
+    return (double) beanObject().attributes().getOrDefault(FIFTEEN_MINUTE_RATE, 0);
   }
 
   default TimeUnit rateUnit() {

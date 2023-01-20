@@ -20,11 +20,11 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
 public interface HasMoveCost extends CostFunction {
@@ -39,6 +39,8 @@ public interface HasMoveCost extends CostFunction {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
+    var sensors =
+        hasMoveCosts.stream().flatMap(x -> x.sensors().stream()).collect(Collectors.toList());
     return new HasMoveCost() {
       @Override
       public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
@@ -71,16 +73,12 @@ public interface HasMoveCost extends CostFunction {
                 .collect(
                     Collectors.toUnmodifiableMap(
                         Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
-        var changedReplicaMaxInRate =
+        var brokerMigrateTime =
             costs.stream()
-                .flatMap(c -> c.changedReplicaMaxInRate().entrySet().stream())
+                .flatMap(c -> c.brokerMigrateTime().entrySet().stream())
                 .collect(
                     Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (l, r) ->
-                            DataRate.Byte.of(Double.doubleToLongBits(l.byteRate() + r.byteRate()))
-                                .perSecond()));
+                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
         return new MoveCost() {
           @Override
           public Map<Integer, DataSize> movedReplicaLeaderSize() {
@@ -103,8 +101,8 @@ public interface HasMoveCost extends CostFunction {
           }
 
           @Override
-          public Map<Integer, DataRate> changedReplicaMaxInRate() {
-            return changedReplicaMaxInRate;
+          public Map<Integer, Double> brokerMigrateTime() {
+            return brokerMigrateTime;
           }
         };
       }
@@ -112,6 +110,11 @@ public interface HasMoveCost extends CostFunction {
       @Override
       public Optional<Fetcher> fetcher() {
         return fetcher;
+      }
+
+      @Override
+      public Collection<MetricSensor> sensors() {
+        return sensors;
       }
     };
   }

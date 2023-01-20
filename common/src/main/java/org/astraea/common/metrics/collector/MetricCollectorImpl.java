@@ -193,7 +193,7 @@ public class MetricCollectorImpl implements MetricCollector {
     mBeanClients.compute(
         identity,
         (id, client) -> {
-          if (client != null) throw new IllegalArgumentException(errorMessage.get());
+          if (client != null) return null;
           else return clientSupplier.get();
         });
     this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, identity));

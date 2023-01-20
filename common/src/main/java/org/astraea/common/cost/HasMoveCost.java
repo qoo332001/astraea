@@ -55,6 +55,21 @@ public interface HasMoveCost extends CostFunction {
                 .collect(
                     Collectors.toUnmodifiableMap(
                         Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
+
+        var movedReplicaLeaderInSize =
+            costs.stream()
+                .flatMap(c -> c.movedReplicaLeaderInSize().entrySet().stream())
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
+
+        var movedReplicaLeaderOutSize =
+            costs.stream()
+                .flatMap(c -> c.movedReplicaLeaderOutSize().entrySet().stream())
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
+
         var movedReplicaSize =
             costs.stream()
                 .flatMap(c -> c.movedRecordSize().entrySet().stream())
@@ -83,6 +98,16 @@ public interface HasMoveCost extends CostFunction {
           @Override
           public Map<Integer, DataSize> movedReplicaLeaderSize() {
             return movedReplicaLeaderSize;
+          }
+
+          @Override
+          public Map<Integer, DataSize> movedReplicaLeaderInSize() {
+            return movedReplicaLeaderInSize;
+          }
+
+          @Override
+          public Map<Integer, DataSize> movedReplicaLeaderOutSize() {
+            return movedReplicaLeaderOutSize;
           }
 
           @Override

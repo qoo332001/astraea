@@ -17,12 +17,14 @@
 package org.astraea.common.cost;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.BeanObject;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -36,6 +38,29 @@ class ReplicaLeaderSizeCostTest {
   static void closeService() {
     SERVICE.close();
   }
+
+  private static final BeanObject bean1 =
+      new BeanObject(
+          "domain",
+          Map.of("topic", "t", "partition", "10", "name", "SIZE"),
+          Map.of("Value", 777.0));
+  private static final BeanObject bean2 =
+      new BeanObject(
+          "domain",
+          Map.of("topic", "t", "partition", "11", "name", "SIZE"),
+          Map.of("Value", 700.0));
+  private static final BeanObject bean3 =
+      new BeanObject(
+          "domain",
+          Map.of("topic", "t", "partition", "12", "name", "SIZE"),
+          Map.of("Value", 500.0),
+          200);
+  private static final BeanObject bean4 =
+      new BeanObject(
+          "domain",
+          Map.of("topic", "t", "partition", "12", "name", "SIZE"),
+          Map.of("Value", 499.0),
+          200);
 
   @Test
   void testClusterCost() {
@@ -62,10 +87,10 @@ class ReplicaLeaderSizeCostTest {
     var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
 
     Assertions.assertEquals(
-        3, moveCost.movedReplicaLeaderSize().size(), moveCost.movedReplicaLeaderSize().toString());
-    Assertions.assertEquals(700000, moveCost.movedReplicaLeaderSize().get(0).bytes());
-    Assertions.assertEquals(-6700000, moveCost.movedReplicaLeaderSize().get(1).bytes());
-    Assertions.assertEquals(6000000, moveCost.movedReplicaLeaderSize().get(2).bytes());
+        3, moveCost.movedRecordSize().size(), moveCost.movedRecordSize().toString());
+    Assertions.assertEquals(700000, moveCost.movedRecordSize().get(0).bytes());
+    Assertions.assertEquals(-6700000, moveCost.movedRecordSize().get(1).bytes());
+    Assertions.assertEquals(6000000, moveCost.movedRecordSize().get(2).bytes());
   }
 
   /*

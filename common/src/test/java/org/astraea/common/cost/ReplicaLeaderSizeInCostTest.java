@@ -18,7 +18,6 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -30,7 +29,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ReplicaLeaderSizeCostTest {
+class ReplicaLeaderSizeInCostTest {
 
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
 
@@ -65,16 +64,16 @@ class ReplicaLeaderSizeCostTest {
   @Test
   void testClusterCost() {
     final Dispersion dispersion = Dispersion.cov();
-    var loadCostFunction = new ReplicaLeaderSizeCost();
-    var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
-    var clusterCost = loadCostFunction.clusterCost(clusterInfo(), clusterBean()).value();
+    var loadCostFunction = new ReplicaLeaderSizeInCost();
+    var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), ClusterBean.EMPTY).value();
+    var clusterCost = loadCostFunction.clusterCost(clusterInfo(), ClusterBean.EMPTY).value();
     Assertions.assertEquals(dispersion.calculate(brokerLoad.values()), clusterCost);
   }
 
   @Test
   void testBrokerCost() {
-    var cost = new ReplicaLeaderSizeCost();
-    var result = cost.brokerCost(clusterInfo(), clusterBean());
+    var cost = new ReplicaLeaderSizeInCost();
+    var result = cost.brokerCost(clusterInfo(), ClusterBean.EMPTY);
     Assertions.assertEquals(3, result.value().size());
     Assertions.assertEquals(777 + 500, result.value().get(0));
     Assertions.assertEquals(700, result.value().get(1));
@@ -83,14 +82,21 @@ class ReplicaLeaderSizeCostTest {
 
   @Test
   void testMoveCost() {
-    var cost = new ReplicaLeaderSizeCost();
-    var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
+    var inCost = new ReplicaLeaderSizeInCost();
+    var inMoveCost = inCost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
 
+    Assertions.assertEquals(3, inMoveCost.movedReplicaLeaderInSize().size());
+    Assertions.assertEquals(700000 + 800000, inMoveCost.movedReplicaLeaderInSize().get(0).bytes());
+    Assertions.assertEquals(0, inMoveCost.movedReplicaLeaderInSize().get(1).bytes());
+    Assertions.assertEquals(6000000, inMoveCost.movedReplicaLeaderInSize().get(2).bytes());
+
+    var outCost = new ReplicaLeaderSizeOutCost();
+    var outMoveCost = outCost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
+    Assertions.assertEquals(3, outMoveCost.movedReplicaLeaderOutSize().size());
+    Assertions.assertEquals(0, outMoveCost.movedReplicaLeaderOutSize().get(0).bytes());
     Assertions.assertEquals(
-        3, moveCost.movedReplicaSize().size(), moveCost.movedReplicaSize().toString());
-    Assertions.assertEquals(700000, moveCost.movedReplicaSize().get(0).bytes());
-    Assertions.assertEquals(-6700000, moveCost.movedReplicaSize().get(1).bytes());
-    Assertions.assertEquals(6000000, moveCost.movedReplicaSize().get(2).bytes());
+        6000000 + 700000, outMoveCost.movedReplicaLeaderOutSize().get(1).bytes());
+    Assertions.assertEquals(800000, outMoveCost.movedReplicaLeaderOutSize().get(2).bytes());
   }
 
   /*
@@ -102,13 +108,17 @@ class ReplicaLeaderSizeCostTest {
   generated plan replica distributed :
     test-1-0 : 0,2
     test-1-1 : 0,2
-    test-2-0 : 1,2
+    test-2-0 : 1,0
+  test-1-0: 6000000, test-1-1: 700000, test-2-0: 800000
 
+  1->2: 6000000, 1->0: 700000, 2->0: 800000
    */
 
   static ClusterInfo getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        "fake", replicas.stream().map(Replica::nodeInfo).collect(Collectors.toList()), replicas);
+        "fake",
+        List.of(NodeInfo.of(0, "", 0), NodeInfo.of(1, "", 0), NodeInfo.of(2, "", 0)),
+        replicas);
   }
 
   static ClusterInfo originClusterInfo() {
@@ -266,7 +276,7 @@ class ReplicaLeaderSizeCostTest {
             Replica.builder()
                 .topic("test-2")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(2, "", -1))
+                .nodeInfo(NodeInfo.of(0, "", -1))
                 .lag(-1)
                 .size(800000)
                 .isLeader(false)
@@ -281,7 +291,7 @@ class ReplicaLeaderSizeCostTest {
 
   @Test
   void testPartitionCost() {
-    var cost = new ReplicaLeaderSizeCost();
+    var cost = new ReplicaLeaderSizeInCost();
     var result = cost.partitionCost(clusterInfo(), ClusterBean.EMPTY).value();
 
     Assertions.assertEquals(3, result.size());
@@ -325,32 +335,5 @@ class ReplicaLeaderSizeCostTest {
         "fake",
         List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)),
         replicas);
-  }
-
-  private static ClusterBean clusterBean() {
-
-    return ClusterBean.of(
-        Map.of(
-            0,
-            List.of(
-                (ReplicaLeaderSizeCost.SizeStatisticalBean) () -> bean1,
-                (ReplicaLeaderSizeCost.SizeStatisticalBean) () -> bean4),
-            1,
-            List.of((ReplicaLeaderSizeCost.SizeStatisticalBean) () -> bean2),
-            2,
-            List.of((ReplicaLeaderSizeCost.SizeStatisticalBean) () -> bean3)));
-  }
-
-  @Test
-  void testMaxPartitionSize() {
-    var cost = new ReplicaLeaderSizeCost();
-    var tp = TopicPartition.of("t", 0);
-    var overFlowSize = List.of(100L, 200L, 300L);
-    var size = List.of(100L, 110L, 120L);
-    Assertions.assertThrows(
-        NoSufficientMetricsException.class, () -> cost.maxPartitionSize(tp, List.of()));
-    Assertions.assertThrows(
-        NoSufficientMetricsException.class, () -> cost.maxPartitionSize(tp, overFlowSize));
-    Assertions.assertEquals(120.0, cost.maxPartitionSize(tp, size));
   }
 }

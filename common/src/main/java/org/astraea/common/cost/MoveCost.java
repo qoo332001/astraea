@@ -33,6 +33,24 @@ public interface MoveCost {
     };
   }
 
+  static MoveCost movedReplicaLeaderInSize(Map<Integer, DataSize> value) {
+    return new MoveCost() {
+      @Override
+      public Map<Integer, DataSize> movedReplicaLeaderInSize() {
+        return value;
+      }
+    };
+  }
+
+  static MoveCost movedReplicaLeaderOutSize(Map<Integer, DataSize> value) {
+    return new MoveCost() {
+      @Override
+      public Map<Integer, DataSize> movedReplicaLeaderOutSize() {
+        return value;
+      }
+    };
+  }
+
   static MoveCost movedRecordSize(Map<Integer, DataSize> value) {
     return new MoveCost() {
       @Override
@@ -74,6 +92,14 @@ public interface MoveCost {
    *     excluded.
    */
   default Map<Integer, DataSize> movedReplicaLeaderSize() {
+    return Map.of();
+  }
+
+  default Map<Integer, DataSize> movedReplicaLeaderInSize() {
+    return Map.of();
+  }
+
+  default Map<Integer, DataSize> movedReplicaLeaderOutSize() {
     return Map.of();
   }
 

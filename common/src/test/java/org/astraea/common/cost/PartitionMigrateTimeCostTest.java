@@ -37,7 +37,7 @@ import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class PartitionMaxInRateCostTest {
+class PartitionMigrateTimeCostTest {
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
   private static final BeanObject bean1 =
       new BeanObject("domain", Map.of("topic", "t", "partition", "10"), Map.of("Value", 777.0));
@@ -55,12 +55,11 @@ class PartitionMaxInRateCostTest {
     // before(partition-broker): p10-1, p11-2, p12-0, p12-0
     // after(partition-broker):  p10-0, p11-1, p12-2, p12-0
     // p10:777.0, p11:700.0, p12:500.0
-    var cf = new PartitionMaxInRateCost();
+    var cf = new PartitionMigrateTimeCost();
     var mc = cf.moveCost(clusterInfo(), afterClusterInfo(), clusterBean());
-    Assertions.assertEquals(
-        Math.max(500.0 + 500.0, 777.0 + 500.0), mc.brokerMigrateTime().get(0).byteRate());
-    Assertions.assertEquals(Math.max(777.0, 700.0), mc.brokerMigrateTime().get(1).byteRate());
-    Assertions.assertEquals(Math.max(700.0, 500.0), mc.brokerMigrateTime().get(2).byteRate());
+    Assertions.assertEquals(Math.max(500.0 + 500.0, 777.0 + 500.0), mc.brokerMigrateTime().get(0));
+    Assertions.assertEquals(Math.max(777.0, 700.0), mc.brokerMigrateTime().get(1));
+    Assertions.assertEquals(Math.max(700.0, 500.0), mc.brokerMigrateTime().get(2));
   }
 
   private ClusterInfo afterClusterInfo() {
@@ -134,12 +133,12 @@ class PartitionMaxInRateCostTest {
         Map.of(
             0,
             List.of(
-                (PartitionMaxInRateCost.WorseLogRateStatisticalBean) () -> bean1,
-                (PartitionMaxInRateCost.WorseLogRateStatisticalBean) () -> bean4),
+                (PartitionMigrateTimeCost.WorseLogRateStatisticalBean) () -> bean1,
+                (PartitionMigrateTimeCost.WorseLogRateStatisticalBean) () -> bean4),
             1,
-            List.of((PartitionMaxInRateCost.WorseLogRateStatisticalBean) () -> bean2),
+            List.of((PartitionMigrateTimeCost.WorseLogRateStatisticalBean) () -> bean2),
             2,
-            List.of((PartitionMaxInRateCost.WorseLogRateStatisticalBean) () -> bean3)));
+            List.of((PartitionMigrateTimeCost.WorseLogRateStatisticalBean) () -> bean3)));
   }
 
   @Test
@@ -148,7 +147,7 @@ class PartitionMaxInRateCostTest {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       try (var collector = MetricCollector.builder().interval(interval).build()) {
-        var costFunction = new PartitionMaxInRateCost();
+        var costFunction = new PartitionMigrateTimeCost();
         // create come partition to get metrics
         admin
             .creator()
@@ -189,7 +188,7 @@ class PartitionMaxInRateCostTest {
             collector
                 .clusterBean()
                 .replicaMetrics(
-                    tpr.get(0), PartitionMaxInRateCost.WorseLogRateStatisticalBean.class)
+                    tpr.get(0), PartitionMigrateTimeCost.WorseLogRateStatisticalBean.class)
                 .max(Comparator.comparing(HasBeanObject::createdTimestamp))
                 .orElseThrow()
                 .value());

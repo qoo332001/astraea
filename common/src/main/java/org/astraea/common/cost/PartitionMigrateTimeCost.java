@@ -18,22 +18,20 @@ package org.astraea.common.cost;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.HasMeter;
 import org.astraea.common.metrics.broker.HasRate;
-import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -41,23 +39,24 @@ import org.astraea.common.metrics.stats.Debounce;
 import org.astraea.common.metrics.stats.Max;
 
 /** MoveCost: more max write rate change -> higher migrate cost. */
-public class PartitionMaxInRateCost implements HasMoveCost {
+public class PartitionMigrateTimeCost implements HasMoveCost {
   private static final String REPLICATION_IN_RATE = "replication_in_rate";
   private static final String REPLICATION_OUT_RATE = "replication_out_rate";
-  private static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
+  private static final Duration DEFAULT_DURATION = Duration.ofMinutes(100);
   private final Duration duration;
-  static final Map<TopicPartitionReplica, Double> lastRecord = new HashMap<>();
-  static final Map<TopicPartitionReplica, Duration> lastTime = new HashMap<>();
-  static final Map<TopicPartitionReplica, Sensor<Double>> expWeightSensors = new HashMap<>();
+  static final Map<Integer, Double> lastInRecord = new HashMap<>();
+  static final Map<Integer, Double> lastOutRecord = new HashMap<>();
+  static final Map<Integer, Duration> lastInTime = new HashMap<>();
+  static final Map<Integer, Duration> lastOutTime = new HashMap<>();
+  static final Map<Integer, Debounce<Double>> denounces = new HashMap<>();
   static final Map<Integer, Sensor<Double>> maxBrokerReplicationInRate = new HashMap<>();
   static final Map<Integer, Sensor<Double>> maxBrokerReplicationOutRate = new HashMap<>();
-  static final Map<Integer, Debounce<Double>> denounces = new HashMap<>();
 
-  public PartitionMaxInRateCost() {
+  public PartitionMigrateTimeCost() {
     this.duration = DEFAULT_DURATION;
   }
 
-  public PartitionMaxInRateCost(Duration duration) {
+  public PartitionMigrateTimeCost(Duration duration) {
     this.duration = duration;
   }
 
@@ -70,8 +69,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
         List.of(
             client -> List.of(ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.fetch(client)),
             client ->
-                List.of(ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC.fetch(client)),
-            LogMetrics.Log.SIZE::fetch));
+                List.of(ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC.fetch(client))));
   }
 
   @Override
@@ -135,7 +133,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
                     .collect(Collectors.toList())));
   }
 
-  public Map<Integer, HasBeanObject> brokerMaxRate(
+  public Map<Integer, Double> brokerMaxRate(
       ClusterInfo clusterInfo, ClusterBean clusterBean, Class<? extends HasBeanObject> metrics) {
     return clusterInfo.brokers().stream()
         .map(
@@ -144,7 +142,11 @@ public class PartitionMaxInRateCost implements HasMoveCost {
                     broker.id(),
                     clusterBean.all().getOrDefault(broker.id(), List.of()).stream()
                         .filter(x -> metrics.isAssignableFrom(x.getClass()))
-                        .max(Comparator.comparing(HasBeanObject::createdTimestamp))
+                        .mapToDouble(
+                            x -> {
+                              return ((HasMeter) x).oneMinuteRate();
+                            })
+                        .max()
                         .orElseThrow(
                             () ->
                                 new NoSufficientMetricsException(
@@ -156,38 +158,45 @@ public class PartitionMaxInRateCost implements HasMoveCost {
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+    var brokerInRate = brokerMaxRate(before, clusterBean, MaxReplicationInRateBean.class);
+    var brokerOutRate = brokerMaxRate(before, clusterBean, MaxReplicationOutRateBean.class);
+    var needToMigrateIn =
+        new ReplicaLeaderSizeInCost()
+            .moveCost(before, after, clusterBean)
+            .movedReplicaLeaderInSize();
+    var needToMigrateOut =
+        new ReplicaLeaderSizeOutCost()
+            .moveCost(before, after, clusterBean)
+            .movedReplicaLeaderOutSize();
 
-    var brokerInRate =
-        brokerMaxRate(before, clusterBean, MaxReplicationInRateBean.class).entrySet().stream()
+    var brokerMigrateInTime =
+        needToMigrateIn.entrySet().stream()
             .map(
-                x ->
+                brokerSize ->
                     Map.entry(
-                        x.getKey(), ((MaxReplicationInRateBean) x.getValue()).oneMinuteRate()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var brokerOutRate =
-        brokerMaxRate(before, clusterBean, MaxReplicationOutRateBean.class).entrySet().stream()
-            .map(
-                x ->
-                    Map.entry(
-                        x.getKey(), ((MaxReplicationOutRateBean) x.getValue()).oneMinuteRate()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var needToMigrate =
-        new ReplicaLeaderSizeCost().moveCost(before, after, clusterBean).movedReplicaLeaderSize();
-    var brokerMigrateTime =
-        needToMigrate.entrySet().stream()
-            .map(
-                brokerSize -> {
-                  if (brokerSize.getValue().bytes() < 0)
-                    return Map.entry(
                         brokerSize.getKey(),
-                        Math.abs(brokerSize.getValue().bytes())
-                            / brokerOutRate.get(brokerSize.getKey()));
-                  return Map.entry(
-                      brokerSize.getKey(),
-                      brokerSize.getValue().bytes() / brokerInRate.get(brokerSize.getKey()));
-                })
+                        brokerSize.getValue().bytes() / brokerInRate.get(brokerSize.getKey())))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    return MoveCost.brokerMigrateTime(brokerMigrateTime);
+    var brokerMigrateOutTime =
+        needToMigrateOut.entrySet().stream()
+            .map(
+                brokerSize ->
+                    Map.entry(
+                        brokerSize.getKey(),
+                        brokerSize.getValue().bytes() / brokerOutRate.get(brokerSize.getKey())))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var result =
+        Stream.concat(before.nodes().stream(), after.nodes().stream())
+                .distinct()
+            .map(
+                nodeInfo ->
+                    Map.entry(
+                        nodeInfo.id(),
+                        Math.max(
+                            brokerMigrateInTime.get(nodeInfo.id()),
+                            brokerMigrateOutTime.get(nodeInfo.id()))))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    return MoveCost.brokerMigrateTime(result);
   }
 
   public interface WorseLogRateStatisticalBean extends HasGauge<Double> {}

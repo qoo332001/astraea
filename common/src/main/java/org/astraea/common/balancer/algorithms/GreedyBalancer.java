@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
@@ -108,7 +107,6 @@ public class GreedyBalancer implements Balancer {
   private final int maxStep;
   private final int iteration;
   private final AtomicInteger run = new AtomicInteger();
-
 
   public GreedyBalancer(AlgorithmConfig algorithmConfig) {
     this.config = algorithmConfig;

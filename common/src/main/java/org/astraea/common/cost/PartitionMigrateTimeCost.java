@@ -187,7 +187,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var result =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
-                .distinct()
+            .distinct()
             .map(
                 nodeInfo ->
                     Map.entry(

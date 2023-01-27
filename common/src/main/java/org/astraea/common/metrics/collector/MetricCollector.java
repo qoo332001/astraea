@@ -18,11 +18,13 @@ package org.astraea.common.metrics.collector;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MBeanClient;
 
 public interface MetricCollector extends AutoCloseable {
 
@@ -63,6 +65,8 @@ public interface MetricCollector extends AutoCloseable {
 
   /** Register a JMX server. */
   void registerJmx(int identity, InetSocketAddress socketAddress);
+
+  Map<Integer, MBeanClient> listMBeanClients();
 
   /** Register the JMX server on this JVM instance. */
   void registerLocalJmx(int identity);

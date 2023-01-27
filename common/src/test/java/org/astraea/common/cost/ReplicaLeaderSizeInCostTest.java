@@ -93,13 +93,14 @@ class ReplicaLeaderSizeInCostTest {
     var outCost = new ReplicaLeaderSizeOutCost();
     var outMoveCost = outCost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
     Assertions.assertEquals(3, outMoveCost.movedReplicaLeaderOutSize().size());
-    Assertions.assertEquals(0, outMoveCost.movedReplicaLeaderOutSize().get(0).bytes());
+    Assertions.assertEquals(6000000, outMoveCost.movedReplicaLeaderOutSize().get(0).bytes());
     Assertions.assertEquals(
-        6000000 + 700000, outMoveCost.movedReplicaLeaderOutSize().get(1).bytes());
-    Assertions.assertEquals(800000, outMoveCost.movedReplicaLeaderOutSize().get(2).bytes());
+          700000 +800000, outMoveCost.movedReplicaLeaderOutSize().get(1).bytes());
+    Assertions.assertEquals(0, outMoveCost.movedReplicaLeaderOutSize().get(2).bytes());
   }
 
   /*
+  leader 0,1,1
   origin replica distributed :
     test-1-0 : 0,1
     test-1-1 : 1,2
@@ -111,7 +112,8 @@ class ReplicaLeaderSizeInCostTest {
     test-2-0 : 1,0
   test-1-0: 6000000, test-1-1: 700000, test-2-0: 800000
 
-  1->2: 6000000, 1->0: 700000, 2->0: 800000
+  size change: 1->2: 6000000, 1->0: 700000, 2->0: 800000
+  leader: 0->2, 1->0, 1->0
    */
 
   static ClusterInfo getClusterInfo(List<Replica> replicas) {

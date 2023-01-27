@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -66,18 +67,10 @@ public class ReplicaLeaderSizeCost
    */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var result =
-        clusterInfo.replicas().stream()
-            .collect(
-                Collectors.groupingBy(
-                    r -> r.nodeInfo().id(),
-                    Collectors.mapping(
-                        r ->
-                            clusterInfo
-                                .replicaLeader(r.topicPartition())
-                                .map(Replica::size)
-                                .orElseThrow(),
-                        Collectors.summingDouble(x -> x))));
+    var result = clusterInfo.nodes().stream()
+            .map(nodeInfo -> Map.entry(nodeInfo.id(),
+                    clusterInfo.replicaLeaders(nodeInfo.id()).stream().mapToDouble(Replica::size).sum()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return () -> result;
   }
 

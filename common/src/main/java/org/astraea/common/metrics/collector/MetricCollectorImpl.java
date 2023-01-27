@@ -85,6 +85,7 @@ public class MetricCollectorImpl implements MetricCollector {
                         DelayedIdentity identity = null;
                         try {
                           identity = delayedWorks.take();
+
                           // TODO: employ better sampling mechanism
                           // see
                           // https://github.com/skiptests/astraea/pull/1035#discussion_r1010506993
@@ -111,6 +112,7 @@ public class MetricCollectorImpl implements MetricCollector {
                               // MBeanClient can throw NoSuchElementException if the result of query
                               // is empty
                               fetcher.getValue().accept(identity.id, e);
+                              //this.fetchers.remove()
                             }
                           }
                         } catch (InterruptedException e) {
@@ -146,6 +148,11 @@ public class MetricCollectorImpl implements MetricCollector {
                 + " with address "
                 + socketAddress
                 + ". But this id is already registered");
+  }
+
+  @Override
+  public Map<Integer, MBeanClient> listMBeanClients() {
+    return this.mBeanClients;
   }
 
   @Override

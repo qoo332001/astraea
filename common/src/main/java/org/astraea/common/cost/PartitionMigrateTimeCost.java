@@ -49,6 +49,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
   static final Map<Integer, Double> lastOutRecord = new HashMap<>();
   static final Map<Integer, Duration> lastInTime = new HashMap<>();
   static final Map<Integer, Duration> lastOutTime = new HashMap<>();
+
   static final Map<Integer, Debounce<Double>> inDenounces = new HashMap<>();
   static final Map<Integer, Debounce<Double>> outDenounces = new HashMap<>();
   static final Map<Integer, Sensor<Double>> maxBrokerReplicationInRate = new HashMap<>();

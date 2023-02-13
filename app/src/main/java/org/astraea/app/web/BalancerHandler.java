@@ -288,22 +288,21 @@ class BalancerHandler implements Handler {
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
     // try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
 
-      freshJmxAddresses().forEach(
-              (identity,address)->{
-                if (!collector.listMBeanClients().containsKey(identity))
-                  collector.registerJmx(identity,address);
-              }
-      );
-      fetchers.forEach(fetcher ->{
-        if (!collector.listFetchers().contains(fetcher))
-          collector.addFetcher(fetcher);
-      });
-      metricSensors.forEach(
-              metricSensor ->{
-                if (!collector.listMetricsSensors().contains(metricSensor))
-                  collector.addMetricSensors(metricSensor);
-              }
-      );
+    freshJmxAddresses()
+        .forEach(
+            (identity, address) -> {
+              if (!collector.listMBeanClients().containsKey(identity))
+                collector.registerJmx(identity, address);
+            });
+    fetchers.forEach(
+        fetcher -> {
+          if (!collector.listFetchers().contains(fetcher)) collector.addFetcher(fetcher);
+        });
+    metricSensors.forEach(
+        metricSensor -> {
+          if (!collector.listMetricsSensors().contains(metricSensor))
+            collector.addMetricSensors(metricSensor);
+        });
     return execution.apply(collector::clusterBean);
   }
   // }

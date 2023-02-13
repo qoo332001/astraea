@@ -21,8 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-import org.astraea.TestBandWidth;
+import org.astraea.app.testBandWidth.TestBandWidth;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.performance.Performance;
 import org.astraea.app.version.Version;
@@ -39,8 +38,8 @@ public class App {
           WebService.class,
           "version",
           Version.class,
-              "consumer",
-              TestBandWidth.class);
+          "testBandWidth",
+          TestBandWidth.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 

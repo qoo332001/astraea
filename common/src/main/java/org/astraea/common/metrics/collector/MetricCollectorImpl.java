@@ -112,7 +112,7 @@ public class MetricCollectorImpl implements MetricCollector {
                               // MBeanClient can throw NoSuchElementException if the result of query
                               // is empty
                               fetcher.getValue().accept(identity.id, e);
-                              //this.fetchers.remove()
+                              // this.fetchers.remove()
                             }
                           }
                         } catch (InterruptedException e) {

@@ -87,6 +87,15 @@ public interface MoveCost {
     };
   }
 
+  static MoveCost brokerWorseMigrateTime(Map<Integer, Double> value) {
+    return new MoveCost() {
+      @Override
+      public Map<Integer, Double> brokerWorseMigrateTime() {
+        return value;
+      }
+    };
+  }
+
   /**
    * @return the leader data size of moving replicas. Noted that the "removing" replicas are
    *     excluded.
@@ -130,6 +139,10 @@ public interface MoveCost {
    * @return broker id and total maximum replica write rate in the broker during migration
    */
   default Map<Integer, Double> brokerMigrateTime() {
+    return Map.of();
+  }
+
+  default Map<Integer, Double> brokerWorseMigrateTime(){
     return Map.of();
   }
 }

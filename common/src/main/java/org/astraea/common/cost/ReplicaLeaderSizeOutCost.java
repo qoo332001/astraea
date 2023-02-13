@@ -47,7 +47,7 @@ public class ReplicaLeaderSizeOutCost implements HasMoveCost {
     var cost =
         changePartitions.stream()
             .flatMap(p -> before.replicas(p).stream().filter(r -> !after.replicas(p).contains(r)))
-                .map(x->before.replicaLeader(x.topicPartition()).get())
+            .map(x -> before.replicaLeader(x.topicPartition()).get())
             .collect(
                 Collectors.groupingBy(
                     r -> r.nodeInfo().id(),

@@ -92,7 +92,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                                     == ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC)
                     .map(
                         g -> {
-                            var current = Duration.ofMillis(System.currentTimeMillis());
+                          var current = Duration.ofMillis(System.currentTimeMillis());
                           var newCount = Double.valueOf(g.count());
                           var maxRateSensor =
                               g.metricsName()
@@ -115,98 +115,118 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                               .equals(
                                   ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC
                                       .metricName())) {
-                              var debounce =
-                                      inDenounces.computeIfAbsent(
-                                              identity, ignore -> Debounce.of(Duration.ofSeconds(rateDurationSec)));
-                              debounce
-                                      .record(newCount, current.toMillis())
-                                      .ifPresent(
-                                              debouncedValue -> {
-                                                  if (lastInTime.containsKey(identity))
-                                                      maxRateSensor.record(
-                                                              (debouncedValue
-                                                                      - lastInRecord.getOrDefault(identity, 0.0))
-                                                                      / (current.getSeconds()
-                                                                      - lastInTime.get(identity).getSeconds()));
-                                                  lastInTime.put(identity, current);
-                                                  lastInRecord.put(identity, debouncedValue);
-                                              });
-                              return (MaxReplicationInRateBean)
-                                      () ->
-                                              new BeanObject(
-                                                      g.beanObject().domainName(),
-                                                      g.beanObject().properties(),
-                                                      Map.of(
-                                                              HasRate.ONE_MIN_RATE_KEY,
-                                                              maxRateSensor.measure(REPLICATION_IN_RATE)),
-                                                      System.currentTimeMillis());
-                          }
-                          else {
-                              var debounce =
-                                      outDenounces.computeIfAbsent(
-                                              identity, ignore -> Debounce.of(Duration.ofSeconds(rateDurationSec)));
-                              debounce
-                                      .record(newCount, current.toMillis())
-                                      .ifPresent(
-                                              debouncedValue -> {
-                                                  if (lastOutTime.containsKey(identity))
-                                                      maxRateSensor.record(
-                                                              ((debouncedValue
-                                                                      - lastOutRecord.getOrDefault(identity, 0.0))
-                                                                      / (current.getSeconds()
-                                                                      - lastOutTime.get(identity).getSeconds())));
-                                                  lastOutTime.put(identity, current);
-                                                  lastOutRecord.put(identity, debouncedValue);
-                                              });
-                              return (MaxReplicationOutRateBean)
-                                      () ->
-                                              new BeanObject(
-                                                      g.beanObject().domainName(),
-                                                      g.beanObject().properties(),
-                                                      Map.of(
-                                                              HasRate.ONE_MIN_RATE_KEY,
-                                                              maxRateSensor.measure(REPLICATION_OUT_RATE)),
-                                                      System.currentTimeMillis());
+                            var debounce =
+                                inDenounces.computeIfAbsent(
+                                    identity,
+                                    ignore -> Debounce.of(Duration.ofSeconds(rateDurationSec)));
+                            debounce
+                                .record(newCount, current.toMillis())
+                                .ifPresent(
+                                    debouncedValue -> {
+                                      if (lastInTime.containsKey(identity))
+                                        maxRateSensor.record(
+                                            (debouncedValue
+                                                    - lastInRecord.getOrDefault(identity, 0.0))
+                                                / (current.getSeconds()
+                                                    - lastInTime.get(identity).getSeconds()));
+                                      lastInTime.put(identity, current);
+                                      lastInRecord.put(identity, debouncedValue);
+                                    });
+                            return (MaxReplicationInRateBean)
+                                () ->
+                                    new BeanObject(
+                                        g.beanObject().domainName(),
+                                        g.beanObject().properties(),
+                                        Map.of(
+                                            HasRate.ONE_MIN_RATE_KEY,
+                                            maxRateSensor.measure(REPLICATION_IN_RATE)),
+                                        System.currentTimeMillis());
+                          } else {
+                            var debounce =
+                                outDenounces.computeIfAbsent(
+                                    identity,
+                                    ignore -> Debounce.of(Duration.ofSeconds(rateDurationSec)));
+                            debounce
+                                .record(newCount, current.toMillis())
+                                .ifPresent(
+                                    debouncedValue -> {
+                                      if (lastOutTime.containsKey(identity))
+                                        maxRateSensor.record(
+                                            ((debouncedValue
+                                                    - lastOutRecord.getOrDefault(identity, 0.0))
+                                                / (current.getSeconds()
+                                                    - lastOutTime.get(identity).getSeconds())));
+                                      lastOutTime.put(identity, current);
+                                      lastOutRecord.put(identity, debouncedValue);
+                                    });
+                            return (MaxReplicationOutRateBean)
+                                () ->
+                                    new BeanObject(
+                                        g.beanObject().domainName(),
+                                        g.beanObject().properties(),
+                                        Map.of(
+                                            HasRate.ONE_MIN_RATE_KEY,
+                                            maxRateSensor.measure(REPLICATION_OUT_RATE)),
+                                        System.currentTimeMillis());
                           }
                         })
                     .collect(Collectors.toList())));
   }
 
   public Map<Integer, Double> brokerMaxRate(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, Class<? extends HasBeanObject> statisticMetrics,String metricName) {
-      var usedBandwidth =
-              clusterBean.all().getOrDefault(0, List.of()).stream()
-              .filter(x -> ServerMetrics.BrokerTopic.Meter.class.isAssignableFrom(x.getClass()))
-              .filter(x->x.metricName().equals(ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.metricName()))
-              .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-                      .map(x->(ServerMetrics.BrokerTopic.Meter)x)
-              .get().oneMinuteRate();
-    var maxReplicationBandwidth = clusterInfo.brokers().stream()
-        .map(
-            broker ->
-                Map.entry(
-                    broker.id(),
-                    clusterBean.all().getOrDefault(broker.id(), List.of()).stream()
-                        .filter(x -> statisticMetrics.isAssignableFrom(x.getClass()))
-                        .mapToDouble(
-                            x -> {
-                              return ((HasMeter) x).oneMinuteRate();
-                            })
-                        .max()
-                        .orElseThrow(
-                            () ->
-                                new NoSufficientMetricsException(
-                                    this,
-                                    Duration.ofSeconds(1),
-                                    "No metric for broker" + broker.id()))))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      ClusterInfo clusterInfo,
+      ClusterBean clusterBean,
+      Class<? extends HasBeanObject> statisticMetrics,
+      String metricName) {
+    var usedBandwidth =
+        clusterBean.all().getOrDefault(0, List.of()).stream()
+            .filter(x -> ServerMetrics.BrokerTopic.Meter.class.isAssignableFrom(x.getClass()))
+            .filter(
+                x ->
+                    x.metricName()
+                        .equals(
+                            ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.metricName()))
+            .max(Comparator.comparing(HasBeanObject::createdTimestamp))
+            .map(x -> (ServerMetrics.BrokerTopic.Meter) x)
+            .get()
+            .oneMinuteRate();
+    var maxReplicationBandwidth =
+        clusterInfo.brokers().stream()
+            .map(
+                broker ->
+                    Map.entry(
+                        broker.id(),
+                        clusterBean.all().getOrDefault(broker.id(), List.of()).stream()
+                            .filter(x -> statisticMetrics.isAssignableFrom(x.getClass()))
+                            .mapToDouble(
+                                x -> {
+                                  return ((HasMeter) x).oneMinuteRate();
+                                })
+                            .max()
+                            .orElseThrow(
+                                () ->
+                                    new NoSufficientMetricsException(
+                                        this,
+                                        Duration.ofSeconds(1),
+                                        "No metric for broker" + broker.id()))))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return maxReplicationBandwidth;
   }
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var brokerInRate = brokerMaxRate(before, clusterBean, MaxReplicationInRateBean.class,ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.metricName());
-    var brokerOutRate = brokerMaxRate(before, clusterBean, MaxReplicationOutRateBean.class,ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC.metricName());
+    var brokerInRate =
+        brokerMaxRate(
+            before,
+            clusterBean,
+            MaxReplicationInRateBean.class,
+            ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.metricName());
+    var brokerOutRate =
+        brokerMaxRate(
+            before,
+            clusterBean,
+            MaxReplicationOutRateBean.class,
+            ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC.metricName());
     var needToMigrateIn =
         new ReplicaLeaderSizeInCost()
             .moveCost(before, after, clusterBean)
@@ -244,16 +264,12 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                             brokerMigrateOutTime.get(nodeInfo.id()))))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     System.out.println("------------------------------------------");
-    brokerInRate.forEach( (broker,rate)->
-            System.out.println( "brokerIn" + broker + " rate:" + rate )
-    );
-      brokerOutRate.forEach( (broker,rate)->
-              System.out.println( "brokerOut" + broker + " rate:" + rate )
-      );
+    brokerInRate.forEach(
+        (broker, rate) -> System.out.println("brokerIn" + broker + " rate:" + rate));
+    brokerOutRate.forEach(
+        (broker, rate) -> System.out.println("brokerOut" + broker + " rate:" + rate));
     return MoveCost.brokerMigrateTime(result);
   }
-
-  public interface WorseLogRateStatisticalBean extends HasGauge<Double> {}
 
   public interface MaxReplicationInRateBean extends HasMeter {}
 

@@ -67,10 +67,10 @@ public class ReplicaLeaderSizeCost
    */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var result = clusterInfo.nodes().stream()
-            .map(nodeInfo -> Map.entry(nodeInfo.id(),
-                    clusterInfo.replicaLeaders(nodeInfo.id()).stream().mapToDouble(Replica::size).sum()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var result =clusterInfo.replicas().stream()
+            .collect(Collectors.groupingBy(
+                    r->r.nodeInfo().id(),
+                    Collectors.summingDouble(x->x.size())));
     return () -> result;
   }
 

@@ -54,11 +54,15 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   private static Map<Integer, Integer> leaderCount(
       ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    if (clusterBean == ClusterBean.EMPTY) return leaderCount(clusterInfo);
+    //if (clusterBean == ClusterBean.EMPTY)
+      return leaderCount(clusterInfo);
+      /*
     var leaderCount = leaderCount(clusterBean);
     // if there is no available metrics, we re-count the leaders based on cluster information
     if (leaderCount.values().stream().mapToInt(i -> i).sum() == 0) return leaderCount(clusterInfo);
     return leaderCount;
+
+       */
   }
 
   static Map<Integer, Integer> leaderCount(ClusterBean clusterBean) {

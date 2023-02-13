@@ -243,6 +243,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                             brokerMigrateInTime.get(nodeInfo.id()),
                             brokerMigrateOutTime.get(nodeInfo.id()))))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    System.out.println("------------------------------------------");
     brokerInRate.forEach( (broker,rate)->
             System.out.println( "brokerIn" + broker + " rate:" + rate )
     );

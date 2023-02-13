@@ -27,6 +27,7 @@ import org.astraea.common.admin.Replica;
 
 public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
+  private final Dispersion dispersion = Dispersion.cov();
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
@@ -68,7 +69,8 @@ public class RecordSizeCost
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var result = clusterInfo.replicaStream().mapToLong(Replica::size).sum();
-    return () -> result;
+    var brokerCost = brokerCost(clusterInfo, ClusterBean.EMPTY).value();
+    var value = dispersion.calculate(brokerCost.values());
+    return () -> value;
   }
 }

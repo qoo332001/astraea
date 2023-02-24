@@ -50,6 +50,7 @@ public class TestBandWidth {
                           + r.size()));
       var startTime = (System.currentTimeMillis() / 1000.0);
        admin.moveToFolders(Map.of(tpr,"/tmp/log-folder-0")).toCompletableFuture().get();
+
       while (admin.clusterInfo(Set.of(tpr.topic())).toCompletableFuture().get().replicas().size()
           == 2)
         ;
@@ -73,6 +74,7 @@ public class TestBandWidth {
     }
     var endTime = (System.currentTimeMillis() / 1000.0);
     System.out.println(("execution time :" + (endTime - startTime)));
+<<<<<<< HEAD:app/src/main/java/org/astraea/app/testBandWidth/TestBandWidth.java
 
      */
   }

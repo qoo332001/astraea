@@ -21,9 +21,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.testBandWidth.TestBandWidth;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.performance.Performance;
+import org.astraea.app.testBandWidth.TestBandWidth;
 import org.astraea.app.version.Version;
 import org.astraea.app.web.WebService;
 

@@ -142,7 +142,7 @@ public interface MoveCost {
     return Map.of();
   }
 
-  default Map<Integer, Double> brokerWorseMigrateTime(){
+  default Map<Integer, Double> brokerWorseMigrateTime() {
     return Map.of();
   }
 }

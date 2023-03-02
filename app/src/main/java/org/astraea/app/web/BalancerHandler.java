@@ -371,8 +371,8 @@ class BalancerHandler implements Handler {
       if (request.maxMigratedSize.bytes()
           < cost.movedRecordSize().values().stream().mapToLong(DataSize::bytes).sum()) return false;
       if (request.maxMigratedLeader
-          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
-        return false;
+          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum()) return false;
+      if (request.maxMigratedTime < cost.brokerMigrateTime().values().stream().filter(x->!x.isNaN()).max(Comparator.comparing(x-> x)).get()) return false;
       return true;
     };
   }
@@ -389,6 +389,7 @@ class BalancerHandler implements Handler {
     DataSize maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
 
     long maxMigratedLeader = Long.MAX_VALUE;
+    double maxMigratedTime = Double.MAX_VALUE;
 
     List<CostWeight> costWeights = List.of();
 

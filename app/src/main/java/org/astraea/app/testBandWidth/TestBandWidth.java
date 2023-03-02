@@ -49,7 +49,7 @@ public class TestBandWidth {
                           + " size: "
                           + r.size()));
       var startTime = (System.currentTimeMillis() / 1000.0);
-       //admin.moveToFolders(Map.of(tpr,"/tmp/log-folder-0")).toCompletableFuture().get();
+       admin.moveToFolders(Map.of(tpr,"/tmp/log-folder-0")).toCompletableFuture().get();
 
       while (admin.clusterInfo(Set.of(tpr.topic())).toCompletableFuture().get().replicas().size()
           == 2)
@@ -59,14 +59,13 @@ public class TestBandWidth {
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException(e);
     }
-
-
+    /*
     // consumer read test
     var consumer =
         Consumer.forPartitions(Set.of(tpr.topicPartition()))
             .bootstrapServers(bootstrapServer)
             .config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-                .config(ConsumerConfig.RECEIVE_BUFFER_CONFIG, "6553600")
+            .config(ConsumerConfig.RECEIVE_BUFFER_CONFIG, "6553600")
             .build();
 
     var startTime = (System.currentTimeMillis() / 1000.0);
@@ -76,5 +75,6 @@ public class TestBandWidth {
     var endTime = (System.currentTimeMillis() / 1000.0);
     System.out.println(("execution time :" + (endTime - startTime)));
 
+     */
   }
 }

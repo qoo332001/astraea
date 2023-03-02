@@ -30,7 +30,6 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
-import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.HasMeter;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -54,6 +53,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
   static final Map<Integer, Debounce<Double>> outDenounces = new HashMap<>();
   static final Map<Integer, Sensor<Double>> maxBrokerReplicationInRate = new HashMap<>();
   static final Map<Integer, Sensor<Double>> maxBrokerReplicationOutRate = new HashMap<>();
+  // metrics windows size
   static final int rateDurationSec = 90;
 
   public PartitionMigrateTimeCost() {

@@ -54,7 +54,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
   static final Map<Integer, Sensor<Double>> maxBrokerReplicationInRate = new HashMap<>();
   static final Map<Integer, Sensor<Double>> maxBrokerReplicationOutRate = new HashMap<>();
   // metrics windows size
-  static final int rateDurationSec = 90;
+  static final int rateDurationSec = 120;
 
   public PartitionMigrateTimeCost() {
     this.duration = DEFAULT_DURATION;
@@ -90,6 +90,51 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                             g.type() == ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC
                                 || g.type()
                                     == ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC)
+                    .map(
+                        g -> {
+                          var maxRateSensor =
+                              g.metricsName()
+                                      .equals(
+                                          ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC
+                                              .metricName())
+                                  ? maxBrokerReplicationInRate.computeIfAbsent(
+                                      identity,
+                                      ignore ->
+                                          Sensor.builder()
+                                              .addStat(REPLICATION_IN_RATE, Max.<Double>of())
+                                              .build())
+                                  : maxBrokerReplicationOutRate.computeIfAbsent(
+                                      identity,
+                                      ignore ->
+                                          Sensor.builder()
+                                              .addStat(REPLICATION_OUT_RATE, Max.<Double>of())
+                                              .build());
+                          maxRateSensor.record(g.oneMinuteRate());
+                          if (g.metricsName()
+                              .equals(
+                                  ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC
+                                      .metricName())) {
+                            return (MaxReplicationInRateBean)
+                                () ->
+                                    new BeanObject(
+                                        g.beanObject().domainName(),
+                                        g.beanObject().properties(),
+                                        Map.of(
+                                            HasRate.ONE_MIN_RATE_KEY,
+                                            maxRateSensor.measure(REPLICATION_IN_RATE)),
+                                        System.currentTimeMillis());
+                          } else
+                            return (MaxReplicationOutRateBean)
+                                () ->
+                                    new BeanObject(
+                                        g.beanObject().domainName(),
+                                        g.beanObject().properties(),
+                                        Map.of(
+                                            HasRate.ONE_MIN_RATE_KEY,
+                                            maxRateSensor.measure(REPLICATION_OUT_RATE)),
+                                        System.currentTimeMillis());
+                        })
+                    /*
                     .map(
                         g -> {
                           var current = Duration.ofMillis(System.currentTimeMillis());
@@ -170,6 +215,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                                         System.currentTimeMillis());
                           }
                         })
+                         */
                     .collect(Collectors.toList())));
   }
 

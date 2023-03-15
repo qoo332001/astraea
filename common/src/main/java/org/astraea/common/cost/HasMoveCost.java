@@ -51,10 +51,13 @@ public interface HasMoveCost extends CostFunction {
 
         var movedReplicaLeaderSize =
             costs.stream()
-                .flatMap(c -> c.movedReplicaLeaderSize().entrySet().stream())
+                .flatMap(c ->
+                        c.movedReplicaLeaderSize().entrySet().stream())
                 .collect(
                     Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
+                        Map.Entry::getKey, Map.Entry::getValue,
+                            (l, r) ->
+                                    l.add(r.bytes())));
 
         var movedReplicaLeaderInSize =
             costs.stream()

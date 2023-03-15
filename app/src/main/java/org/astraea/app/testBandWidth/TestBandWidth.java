@@ -16,14 +16,11 @@
  */
 package org.astraea.app.testBandWidth;
 
-import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.consumer.Consumer;
 
 public class TestBandWidth {
   public static void main(String[] args) {
@@ -49,7 +46,7 @@ public class TestBandWidth {
                           + " size: "
                           + r.size()));
       var startTime = (System.currentTimeMillis() / 1000.0);
-       admin.moveToFolders(Map.of(tpr,"/tmp/log-folder-0")).toCompletableFuture().get();
+      admin.moveToFolders(Map.of(tpr, "/tmp/log-folder-0")).toCompletableFuture().get();
 
       while (admin.clusterInfo(Set.of(tpr.topic())).toCompletableFuture().get().replicas().size()
           == 2)

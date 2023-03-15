@@ -53,6 +53,7 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
+import org.astraea.common.cost.BrokerDiskSpaceCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -77,7 +78,8 @@ class BalancerHandler implements Handler {
               new RecordSizeCost(),
               new ReplicaLeaderSizeInCost(),
               new ReplicaLeaderSizeOutCost(),
-              new PartitionMigrateTimeCost()));
+              new PartitionMigrateTimeCost()
+             ));
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;
@@ -371,8 +373,13 @@ class BalancerHandler implements Handler {
       if (request.maxMigratedSize.bytes()
           < cost.movedRecordSize().values().stream().mapToLong(DataSize::bytes).sum()) return false;
       if (request.maxMigratedLeader
-          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum()) return false;
-      if (request.maxMigratedTime < cost.brokerMigrateTime().values().stream().filter(x->!x.isNaN()).max(Comparator.comparing(x-> x)).get()) return false;
+          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
+        return false;
+      if (request.maxMigratedTime
+          < cost.brokerMigrateTime().values().stream()
+              .filter(x -> !x.isNaN())
+              .max(Comparator.comparing(x -> x))
+              .get()) return false;
       return true;
     };
   }
@@ -545,11 +552,6 @@ class BalancerHandler implements Handler {
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
             .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
-    if (!ongoingMigration.isEmpty())
-      throw new IllegalStateException(
-          "Another rebalance task might be working on. "
-              + "The following topic/partition has ongoing migration: "
-              + ongoingMigration);
   }
 
   static class PostRequestWrapper {

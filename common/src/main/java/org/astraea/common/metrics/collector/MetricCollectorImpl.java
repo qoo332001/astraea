@@ -108,6 +108,16 @@ public class MetricCollectorImpl implements MetricCollector {
                                             this.beans
                                                 .computeIfAbsent(key, ignore -> new ArrayList<>())
                                                 .addAll(value));
+                              this.beans.forEach(
+                                  (b, metrics) -> {
+                                    if (metrics.size() > 10000)
+                                      this.beans
+                                          .computeIfAbsent(b, ignore -> new ArrayList<>())
+                                          .removeAll(
+                                              IntStream.range(0, 10000 / 2)
+                                                  .boxed()
+                                                  .collect(Collectors.toSet()));
+                                  });
                             } catch (NoSuchElementException e) {
                               // MBeanClient can throw NoSuchElementException if the result of query
                               // is empty

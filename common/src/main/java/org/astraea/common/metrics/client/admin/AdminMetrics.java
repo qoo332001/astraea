@@ -17,11 +17,11 @@
 package org.astraea.common.metrics.client.admin;
 
 import java.util.Collection;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
+import org.astraea.common.metrics.client.HasSelectorMetrics;
 
 public class AdminMetrics {
   /**
@@ -31,10 +31,8 @@ public class AdminMetrics {
    * @return key is broker id, and value is associated to broker metrics recorded by all consumers
    */
   public static Collection<HasNodeMetrics> nodes(MBeanClient mBeanClient) {
-    Function<String, Integer> brokerId =
-        node -> Integer.parseInt(node.substring(node.indexOf("-") + 1));
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.admin.client")
                 .property("type", "admin-client-node-metrics")
@@ -46,16 +44,16 @@ public class AdminMetrics {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static Collection<HasAdminMetrics> of(MBeanClient mBeanClient) {
+  public static Collection<HasSelectorMetrics> of(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.admin.client")
                 .property("type", "admin-client-metrics")
                 .property("client-id", "*")
                 .build())
         .stream()
-        .map(b -> (HasAdminMetrics) () -> b)
+        .map(b -> (HasSelectorMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
 }

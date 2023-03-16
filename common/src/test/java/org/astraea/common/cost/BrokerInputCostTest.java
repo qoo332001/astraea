@@ -58,18 +58,21 @@ public class BrokerInputCostTest {
   }
 
   @Test
-  void testFetcher() {
+  void testSensor() {
     var interval = Duration.ofMillis(300);
-    try (var collector = MetricCollector.builder().interval(interval).build()) {
-      collector.addFetcher(
-          new BrokerInputCost().fetcher().orElseThrow(),
-          (id, err) -> Assertions.fail(err.getMessage()));
-      collector.registerJmx(
-          0,
-          InetSocketAddress.createUnresolved(
-              SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()));
+    try (var collector =
+        MetricCollector.local()
+            .interval(interval)
+            .registerJmx(
+                0,
+                InetSocketAddress.createUnresolved(
+                    SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()))
+            .addMetricSensor(
+                new BrokerInputCost().metricSensor().orElseThrow(),
+                (id, err) -> Assertions.fail(err.getMessage()))
+            .build()) {
       Assertions.assertFalse(collector.listIdentities().isEmpty());
-      Assertions.assertFalse(collector.listFetchers().isEmpty());
+      Assertions.assertFalse(collector.metricSensors().isEmpty());
 
       // wait for first fetch
       Utils.sleep(interval);

@@ -16,73 +16,88 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.function.Bi3Function;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
 public interface HasClusterCost extends CostFunction {
 
   static HasClusterCost of(Map<HasClusterCost, Double> costAndWeight) {
-    var fetcher =
-        Fetcher.of(
+    var sensor =
+        MetricSensor.of(
             costAndWeight.keySet().stream()
-                .map(CostFunction::fetcher)
+                .map(CostFunction::metricSensor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
-    var sensors =
-        costAndWeight.keySet().stream()
-            .flatMap(x -> x.sensors().stream())
-            .collect(Collectors.toList());
 
     return new HasClusterCost() {
       @Override
       public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-        var cost =
+        var scores =
             costAndWeight.entrySet().stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, e -> e.getKey().clusterCost(clusterInfo, clusterBean)));
+        var totalWeight = costAndWeight.values().stream().mapToDouble(x -> x).sum();
+        var compositeScore =
+            costAndWeight.keySet().stream()
                 .mapToDouble(
-                    cw -> cw.getKey().clusterCost(clusterInfo, clusterBean).value() * cw.getValue())
+                    cost -> scores.get(cost).value() * costAndWeight.get(cost) / totalWeight)
                 .sum();
-        return () -> cost;
+
+        return ClusterCost.of(
+            compositeScore,
+            () -> {
+              Bi3Function<HasClusterCost, ClusterCost, Double, String> descriptiveName =
+                  (function, cost, weight) ->
+                      "{\""
+                          + function.toString()
+                          + "\" cost "
+                          + cost.value()
+                          + " weight "
+                          + weight
+                          + " description "
+                          + cost
+                          + " }";
+              return "WeightCompositeClusterCost["
+                  + costAndWeight.entrySet().stream()
+                      .sorted(Map.Entry.<HasClusterCost, Double>comparingByValue().reversed())
+                      .map(
+                          e ->
+                              descriptiveName.apply(
+                                  e.getKey(), scores.get(e.getKey()), e.getValue()))
+                      .collect(Collectors.joining(", "))
+                  + "] = "
+                  + compositeScore;
+            });
       }
 
       @Override
-      public Optional<Fetcher> fetcher() {
-        return fetcher;
-      }
-
-      @Override
-      public Collection<MetricSensor> sensors() {
-        return sensors;
+      public Optional<MetricSensor> metricSensor() {
+        return sensor;
       }
 
       @Override
       public String toString() {
-        BiFunction<HasClusterCost, Double, String> descriptiveName =
-            (cost, value) -> "{\"" + cost.toString() + "\" weight " + value + "}";
-        return "WeightCompositeClusterCost["
-            + costAndWeight.entrySet().stream()
-                .sorted(
-                    Comparator.<Map.Entry<HasClusterCost, Double>>comparingDouble(
-                            Map.Entry::getValue)
-                        .reversed())
-                .map(e -> descriptiveName.apply(e.getKey(), e.getValue()))
-                .collect(Collectors.joining(", "))
-            + "]";
+        return "WeightCompositeClusterCostFunction" + CostFunction.toStringComposite(costAndWeight);
       }
     };
   }
 
   /**
-   * score cluster for a particular metrics according to passed beans and cluster information.
+   * score cluster for a particular metrics according to passed beans and cluster information. Note
+   * that when ClusterInfo and ClusterBean have similar information, you must first refer to
+   * ClusterInfo, The main reason is that the balancer will use the estimated migration distribution
+   * to calculate the ClusterCost when generating the plan, and ClusterBean will only return the
+   * metrics of the actual cluster, so in most of the time, ClusterInfo can be used to estimate the
+   * state after migration. But some costs need to be calculated using ClusterBean, for example:
+   * {@link NetworkCost}
    *
    * @param clusterInfo cluster information
    * @param clusterBean cluster metrics

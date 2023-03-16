@@ -49,7 +49,7 @@ public interface TopicChecker {
               .clusterInfo(topics)
               .thenApply(
                   clusterInfo ->
-                      clusterInfo.topics().stream()
+                      clusterInfo.topicNames().stream()
                           .filter(
                               t -> clusterInfo.replicaStream(t).mapToLong(Replica::size).sum() <= 0)
                           .collect(Collectors.toSet()));
@@ -88,7 +88,7 @@ public interface TopicChecker {
             .clusterInfo(topics)
             .thenApply(
                 clusterInfo ->
-                    clusterInfo.topics().stream()
+                    clusterInfo.topicNames().stream()
                         .filter(
                             topic -> {
                               var max =
@@ -98,10 +98,10 @@ public interface TopicChecker {
                               var min =
                                   clusterInfo.replicaLeaders(topic).stream()
                                       .mapToLong(Replica::size)
-                                      .max();
+                                      .min();
                               return max.isPresent()
                                   && min.isPresent()
-                                  && ((double) min.getAsLong() / max.getAsLong() >= factor);
+                                  && ((double) min.getAsLong() / max.getAsLong() < factor);
                             })
                         .collect(Collectors.toSet()));
   }

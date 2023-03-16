@@ -16,9 +16,11 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -28,6 +30,16 @@ import org.astraea.common.admin.Replica;
 public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.cov();
+  private final Configuration config;
+  public static final String MAX_MIGRATE_SIZE_KEY = "maxMigratedSize";
+
+  public RecordSizeCost() {
+    this.config = Configuration.of(Map.of());
+  }
+
+  public RecordSizeCost(Configuration config) {
+    this.config = config;
+  }
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -42,7 +54,7 @@ public class RecordSizeCost
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    return MoveCost.movedRecordSize(
+    var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
             .distinct()
@@ -53,7 +65,21 @@ public class RecordSizeCost
                     id ->
                         DataSize.Byte.of(
                             after.replicaStream(id).mapToLong(Replica::size).sum()
-                                - before.replicaStream(id).mapToLong(Replica::size).sum()))));
+                                - before.replicaStream(id).mapToLong(Replica::size).sum())));
+    var maxMigratedSize =
+        config
+            .string(MAX_MIGRATE_SIZE_KEY)
+            .map(DataSize::of)
+            .map(DataSize::bytes)
+            .orElse(Long.MAX_VALUE);
+    var overflow =
+        maxMigratedSize
+            < moveCost.values().stream()
+                .map(DataSize::bytes)
+                .map(Math::abs)
+                .mapToLong(s -> s)
+                .sum();
+    return MoveCost.movedRecordSize(moveCost, overflow);
   }
 
   @Override
@@ -73,5 +99,14 @@ public class RecordSizeCost
     var brokerCost = brokerCost(clusterInfo, ClusterBean.EMPTY).value();
     var value = dispersion.calculate(brokerCost.values());
     return () -> value;
+  }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
+
+  public Configuration config() {
+    return this.config;
   }
 }

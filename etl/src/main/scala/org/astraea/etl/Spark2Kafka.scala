@@ -17,10 +17,10 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types.StructType
 import org.astraea.common.admin.Admin
 
 import java.io.File
+import java.nio.file.Path
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 import scala.util.Using
@@ -42,22 +42,11 @@ object Spark2Kafka {
         .join()
     )
 
-    val df = ReadStreams
-      .create(
-        session = sparkSession,
-        source = metadata.sourcePath,
-        columns = metadata.columns
-      )
+    DataFrameProcessor
+      .fromLocalCsv(sparkSession, metadata)
       .csvToJSON(metadata.columns)
-
-    Writer
-      .of()
-      .dataFrameOp(df)
-      .target(metadata.topicName)
-      .checkpoint(metadata.checkpoint)
-      .writeToKafka(metadata.kafkaBootstrapServers)
-      .start()
-      .awaitTermination(duration.toMillis)
+      .toKafkaWriterBuilder(metadata)
+      .start(duration)
   }
 
   def main(args: Array[String]): Unit = {
@@ -66,7 +55,7 @@ object Spark2Kafka {
         .builder()
         .appName("astraea etl")
         .getOrCreate(),
-      Metadata.of(new File(args(0))),
+      Metadata.of(Path.of(args(0))),
       Duration("1000 seconds")
     )
   }

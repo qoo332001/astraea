@@ -16,35 +16,8 @@
  */
 package org.astraea.common.metrics.collector;
 
-import java.net.InetSocketAddress;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.DelayQueue;
-import java.util.concurrent.Delayed;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
-import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
-
-public class MetricCollectorImpl implements MetricCollector {
+public class MetricCollectorImpl { // implements MetricCollector {
+  /*
   private final Map<Integer, MBeanClient> mBeanClients = new ConcurrentHashMap<>();
   private final Collection<MetricSensor> metricSensors = new CopyOnWriteArrayList<>();
   private final CopyOnWriteArrayList<Map.Entry<Fetcher, BiConsumer<Integer, Exception>>> fetchers =
@@ -288,4 +261,6 @@ public class MetricCollectorImpl implements MetricCollector {
           this.getDelay(TimeUnit.NANOSECONDS), delayed.getDelay(TimeUnit.NANOSECONDS));
     }
   }
+
+   */
 }

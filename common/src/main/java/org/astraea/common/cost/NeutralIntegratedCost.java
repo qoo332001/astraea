@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 /**
  * The result is computed by four cost function.There are "BrokerInputCost", "BrokerOutputCost",
@@ -101,32 +101,32 @@ public class NeutralIntegratedCost implements HasBrokerCost {
       inputBrokerCost
           .value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
-      inputBrokerCost
-          .normalize(Normalizer.TScore())
-          .value()
+      Normalizer.TScore()
+          .normalize(inputBrokerCost.value())
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputTScore = value);
     } else if (hasBrokerCost instanceof BrokerOutputCost) {
       var outPutBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
       outPutBrokerCost
           .value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
-      outPutBrokerCost
-          .normalize(Normalizer.TScore())
-          .value()
+      Normalizer.TScore()
+          .normalize(outPutBrokerCost.value())
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputTScore = value);
     } else if (hasBrokerCost instanceof CpuCost) {
-      var CPUBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
-      CPUBrokerCost.value()
-          .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
-      CPUBrokerCost.normalize(Normalizer.TScore())
+      var cpubrokercost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
+      cpubrokercost
           .value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
+      Normalizer.TScore()
+          .normalize(cpubrokercost.value())
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuTScore = value);
     } else if (hasBrokerCost instanceof MemoryCost) {
-      var MemoryBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
-      MemoryBrokerCost.value()
-          .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
-      MemoryBrokerCost.normalize(Normalizer.TScore())
+      var memoryBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
+      memoryBrokerCost
           .value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
+      Normalizer.TScore()
+          .normalize(memoryBrokerCost.value())
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryTScore = value);
     }
   }
@@ -165,13 +165,18 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   }
 
   @Override
-  public Optional<Fetcher> fetcher() {
-    return Fetcher.of(
+  public Optional<MetricSensor> metricSensor() {
+    return MetricSensor.of(
         metricsCost.stream()
-            .map(CostFunction::fetcher)
+            .map(CostFunction::metricSensor)
             .filter(Optional::isPresent)
             .map(Optional::get)
             .collect(Collectors.toUnmodifiableList()));
+  }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
   }
 
   static class BrokerMetrics {

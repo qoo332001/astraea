@@ -16,16 +16,18 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 /**
  * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
@@ -34,19 +36,32 @@ import org.astraea.common.metrics.collector.Fetcher;
  */
 public class ReplicaLeaderSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
+
+  private final Configuration config;
+
+  public static final String COST_LIMIT_KEY = "maxMigratedLeaderSize";
+
+  public ReplicaLeaderSizeCost() {
+    this.config = Configuration.of(Map.of());
+  }
+
+  public ReplicaLeaderSizeCost(Configuration config) {
+    this.config = config;
+  }
+
   private final Dispersion dispersion = Dispersion.cov();
 
   /**
    * @return the metrics getters. Those getters are used to fetch mbeans.
    */
   @Override
-  public Optional<Fetcher> fetcher() {
+  public Optional<MetricSensor> metricSensor() {
     return Optional.empty();
   }
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    return MoveCost.movedReplicaLeaderSize(
+    var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
             .distinct()
@@ -57,7 +72,17 @@ public class ReplicaLeaderSizeCost
                     id ->
                         DataSize.Byte.of(
                             after.replicaStream(id).mapToLong(Replica::size).sum()
-                                - before.replicaStream(id).mapToLong(Replica::size).sum()))));
+                                - before.replicaStream(id).mapToLong(Replica::size).sum())));
+    var maxMigratedLeaderSize =
+        config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
+    var overflow =
+        maxMigratedLeaderSize
+            < moveCost.values().stream()
+                .map(DataSize::bytes)
+                .map(Math::abs)
+                .mapToLong(s -> s)
+                .sum();
+    return MoveCost.movedReplicaLeaderSize(moveCost, overflow);
   }
 
   /**
@@ -78,7 +103,12 @@ public class ReplicaLeaderSizeCost
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerCost.values());
-    return () -> value;
+    return ClusterCost.of(
+        value,
+        () ->
+            brokerCost.values().stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(", ", "{", "}")));
   }
 
   @Override
@@ -95,5 +125,10 @@ public class ReplicaLeaderSizeCost
                                 .map(Replica::size)
                                 .orElseThrow()));
     return () -> result;
+  }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
   }
 }

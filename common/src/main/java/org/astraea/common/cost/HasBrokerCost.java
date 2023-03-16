@@ -16,14 +16,13 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
 public interface HasBrokerCost extends CostFunction {
@@ -34,33 +33,39 @@ public interface HasBrokerCost extends CostFunction {
     // the temporary exception won't affect the smooth-weighted too much.
     // TODO: should we propagate the exception by better way? For example: Slf4j ?
     // see https://github.com/skiptests/astraea/issues/486
-    var fetcher =
-        Fetcher.of(
+    var sensor =
+        MetricSensor.of(
             costAndWeight.keySet().stream()
-                .map(CostFunction::fetcher)
+                .map(CostFunction::metricSensor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
     return new HasBrokerCost() {
       @Override
       public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-        var result = new HashMap<Integer, Double>();
+        var merged = new HashMap<Integer, Double>();
         costAndWeight.forEach(
             (f, w) ->
-                f.brokerCost(clusterInfo, clusterBean)
-                    .value()
+                Normalizer.DEFAULT
+                    .normalize(f.brokerCost(clusterInfo, clusterBean).value())
                     .forEach(
                         (i, v) ->
-                            result.compute(
+                            merged.compute(
                                 i,
                                 (ignored, previous) ->
                                     previous == null ? v * w : v * w + previous)));
-        return () -> Collections.unmodifiableMap(result);
+        var result = Normalizer.DEFAULT.normalize(merged);
+        return () -> result;
       }
 
       @Override
-      public Optional<Fetcher> fetcher() {
-        return fetcher;
+      public Optional<MetricSensor> metricSensor() {
+        return sensor;
+      }
+
+      @Override
+      public String toString() {
+        return "WeightCompositeBrokerCostFunction" + CostFunction.toStringComposite(costAndWeight);
       }
     };
   }

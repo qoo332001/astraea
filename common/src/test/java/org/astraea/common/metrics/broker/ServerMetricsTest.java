@@ -36,6 +36,7 @@ import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -52,25 +53,14 @@ public class ServerMetricsTest {
     Assertions.assertNotEquals(0, SERVICE.dataFolders().size());
   }
 
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   void testAppInfo() {
     ServerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
-  }
-
-  @ParameterizedTest()
-  @EnumSource(value = ServerMetrics.ZooKeeperClientMetrics.class)
-  void testSessionExpireListener(ServerMetrics.ZooKeeperClientMetrics request) {
-    var m = request.fetch(MBeanClient.local());
-    Assertions.assertDoesNotThrow(m::type);
-    MetricsTestUtil.validate(m);
-  }
-
-  @ParameterizedTest()
-  @EnumSource(value = ServerMetrics.SessionExpireListener.class)
-  void testSessionExpireListener(ServerMetrics.SessionExpireListener request) {
-    var m = request.fetch(MBeanClient.local());
-    Assertions.assertDoesNotThrow(m::type);
-    MetricsTestUtil.validate(m);
   }
 
   @ParameterizedTest()

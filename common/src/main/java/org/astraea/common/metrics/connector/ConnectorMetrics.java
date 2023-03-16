@@ -18,14 +18,17 @@ package org.astraea.common.metrics.connector;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.astraea.common.metrics.AppInfo;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.client.HasNodeMetrics;
+import org.astraea.common.metrics.client.HasSelectorMetrics;
 
 public class ConnectorMetrics {
 
   public static List<SourceTaskInfo> sourceTaskInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.connect")
                 .property("type", "source-task-metrics")
@@ -39,7 +42,7 @@ public class ConnectorMetrics {
 
   public static List<SinkTaskInfo> sinkTaskInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.connect")
                 .property("type", "sink-task-metrics")
@@ -53,7 +56,7 @@ public class ConnectorMetrics {
 
   public static List<TaskError> taskError(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.connect")
                 .property("type", "task-error-metrics")
@@ -65,9 +68,9 @@ public class ConnectorMetrics {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static List<ConnectorInfo> connectorInfo(MBeanClient client) {
+  public static List<ConnectorTaskInfo> connectorTaskInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.connect")
                 .property("type", "connector-task-metrics")
@@ -75,7 +78,110 @@ public class ConnectorMetrics {
                 .property("task", "*")
                 .build())
         .stream()
+        .map(b -> (ConnectorTaskInfo) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public static List<AppInfo> appInfo(MBeanClient client) {
+    return client
+        .beans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "app-info")
+                .property("client-id", "*")
+                .build())
+        .stream()
+        .map(b -> (AppInfo) () -> b)
+        .collect(Collectors.toList());
+  }
+
+  public static List<ConnectCoordinatorInfo> coordinatorInfo(MBeanClient client) {
+    return client
+        .beans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "connect-coordinator-metrics")
+                .property("client-id", "*")
+                .build())
+        .stream()
+        .map(b -> (ConnectCoordinatorInfo) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public static List<ConnectorInfo> connectorInfo(MBeanClient client) {
+    return client
+        .beans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "connector-metrics")
+                .property("connector", "*")
+                .build())
+        .stream()
         .map(b -> (ConnectorInfo) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public static List<ConnectWorkerRebalanceInfo> workerRebalanceInfo(MBeanClient client) {
+    return client
+        .beans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "connect-worker-rebalance-metrics")
+                .build())
+        .stream()
+        .map(b -> (ConnectWorkerRebalanceInfo) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public static List<HasNodeMetrics> nodeInfo(MBeanClient client) {
+    return client
+        .beans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "connect-node-metrics")
+                .property("client-id", "*")
+                .property("node-id", "*")
+                .build())
+        .stream()
+        .map(b -> (HasNodeMetrics) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public static List<ConnectWorkerInfo> workerInfo(MBeanClient client) {
+    return client
+        .beans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "connect-worker-metrics")
+                .build())
+        .stream()
+        .map(b -> (ConnectWorkerInfo) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public static List<ConnectWorkerConnectorInfo> workerConnectorInfo(MBeanClient client) {
+    return client
+        .beans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "connect-worker-metrics")
+                .property("connector", "*")
+                .build())
+        .stream()
+        .map(b -> (ConnectWorkerConnectorInfo) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public static List<HasSelectorMetrics> of(MBeanClient client) {
+    return client
+        .beans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "connect-metrics")
+                .property("client-id", "*")
+                .build())
+        .stream()
+        .map(b -> (HasSelectorMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
 }

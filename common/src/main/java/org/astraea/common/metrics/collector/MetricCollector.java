@@ -16,70 +16,17 @@
  */
 package org.astraea.common.metrics.collector;
 
-import java.net.InetSocketAddress;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
 
 public interface MetricCollector extends AutoCloseable {
-
   /**
-   * Register a {@link Fetcher}.
-   *
-   * <p>Note that fetcher will be used by every identity. It is possible that the metric this {@link
-   * Fetcher} is sampling doesn't exist on a JMX server(For example: sampling Kafka broker metric
-   * from a Producer client). When such case occurred. The {@code noSuchMetricHandler} will be
-   * invoked.
-   *
-   * @param fetcher the fetcher
-   * @param noSuchMetricHandler call this if the fetcher raise a {@link
-   *     java.util.NoSuchElementException} exception. The first argument is the identity number. The
-   *     second argument is the exception itself.
+   * @return the current registered sensors.
    */
-  void addFetcher(Fetcher fetcher, BiConsumer<Integer, Exception> noSuchMetricHandler);
-
-  /**
-   * Register a {@link Fetcher}.
-   *
-   * <p>This method swallow the exception caused by {@link java.util.NoSuchElementException}. For
-   * further detail see {@link MetricCollector#addFetcher(Fetcher, BiConsumer)}.
-   *
-   * @see MetricCollector#addFetcher(Fetcher, BiConsumer)
-   * @param fetcher the fetcher
-   */
-  default void addFetcher(Fetcher fetcher) {
-    addFetcher(fetcher, (i0, i1) -> {});
-  }
-
-  /**
-   * Add multiple {@link MetricSensor} for real-time statistics
-   *
-   * @param metricSensor to statistical data
-   */
-  void addMetricSensors(MetricSensor metricSensor);
-
-  /** Register a JMX server. */
-  void registerJmx(int identity, InetSocketAddress socketAddress);
-
-  Map<Integer, MBeanClient> listMBeanClients();
-
-  /** Register the JMX server on this JVM instance. */
-  void registerLocalJmx(int identity);
-
-  /**
-   * @return the current registered metricsSensors.
-   */
-  Collection<MetricSensor> listMetricsSensors();
-
-  /**
-   * @return the current registered fetchers.
-   */
-  Collection<Fetcher> listFetchers();
+  Collection<MetricSensor> metricSensors();
 
   /**
    * @return the current registered identities.
@@ -116,7 +63,11 @@ public interface MetricCollector extends AutoCloseable {
   @Override
   void close();
 
-  static MetricCollectorImpl.Builder builder() {
-    return new MetricCollectorImpl.Builder();
+  static LocalMetricCollector.Builder local() {
+    return new LocalMetricCollector.Builder();
+  }
+
+  static InternalTopicCollector.Builder internalTopic() {
+    return new InternalTopicCollector.Builder();
   }
 }

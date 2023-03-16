@@ -24,11 +24,16 @@ public interface MoveCost {
 
   MoveCost EMPTY = new MoveCost() {};
 
-  static MoveCost movedReplicaLeaderSize(Map<Integer, DataSize> value) {
+  static MoveCost movedReplicaLeaderSize(Map<Integer, DataSize> value, boolean overflow) {
     return new MoveCost() {
       @Override
       public Map<Integer, DataSize> movedReplicaLeaderSize() {
         return value;
+      }
+
+      @Override
+      public boolean overflow() {
+        return overflow;
       }
     };
   }
@@ -51,29 +56,44 @@ public interface MoveCost {
     };
   }
 
-  static MoveCost movedRecordSize(Map<Integer, DataSize> value) {
+  static MoveCost movedRecordSize(Map<Integer, DataSize> value, boolean overflow) {
     return new MoveCost() {
       @Override
       public Map<Integer, DataSize> movedRecordSize() {
         return value;
       }
+
+      @Override
+      public boolean overflow() {
+        return overflow;
+      }
     };
   }
 
-  static MoveCost changedReplicaCount(Map<Integer, Integer> value) {
+  static MoveCost changedReplicaCount(Map<Integer, Integer> value, boolean overflow) {
     return new MoveCost() {
       @Override
       public Map<Integer, Integer> changedReplicaCount() {
         return value;
       }
+
+      @Override
+      public boolean overflow() {
+        return overflow;
+      }
     };
   }
 
-  static MoveCost changedReplicaLeaderCount(Map<Integer, Integer> value) {
+  static MoveCost changedReplicaLeaderCount(Map<Integer, Integer> value, boolean overflow) {
     return new MoveCost() {
       @Override
       public Map<Integer, Integer> changedReplicaLeaderCount() {
         return value;
+      }
+
+      @Override
+      public boolean overflow() {
+        return overflow;
       }
     };
   }
@@ -87,6 +107,7 @@ public interface MoveCost {
     };
   }
 
+  /*
   static MoveCost brokerWorseMigrateTime(Map<Integer, Double> value) {
     return new MoveCost() {
       @Override
@@ -95,6 +116,8 @@ public interface MoveCost {
       }
     };
   }
+
+   */
 
   /**
    * @return the leader data size of moving replicas. Noted that the "removing" replicas are
@@ -142,7 +165,10 @@ public interface MoveCost {
     return Map.of();
   }
 
-  default Map<Integer, Double> brokerWorseMigrateTime() {
-    return Map.of();
+  /**
+   * @return check if the cost exceeds the limit value of the user
+   */
+  default boolean overflow() {
+    return false;
   }
 }

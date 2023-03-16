@@ -26,7 +26,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -617,14 +616,19 @@ class AdminImpl implements Admin {
   public CompletionStage<ClusterInfo> clusterInfo(Set<String> topics) {
     return FutureUtils.combine(
         clusterIdAndBrokers(),
+        topics(topics),
         replicas(topics),
-        (clusterIdAndBrokers, replicas) ->
-            ClusterInfo.of(
-                clusterIdAndBrokers.getKey(),
-                clusterIdAndBrokers.getValue().stream()
-                    .map(x -> (NodeInfo) x)
-                    .collect(Collectors.toUnmodifiableList()),
-                replicas));
+        (clusterIdAndBrokers, topicList, replicas) -> {
+          var topicMap =
+              topicList.stream().collect(Collectors.toUnmodifiableMap(Topic::name, t -> t));
+          return ClusterInfo.of(
+              clusterIdAndBrokers.getKey(),
+              clusterIdAndBrokers.getValue().stream()
+                  .map(x -> (NodeInfo) x)
+                  .collect(Collectors.toUnmodifiableList()),
+              topicMap,
+              replicas);
+        });
   }
 
   private CompletionStage<List<Replica>> replicas(Set<String> topics) {
@@ -998,18 +1002,21 @@ class AdminImpl implements Admin {
                 assignments.entrySet().stream()
                     .filter(e -> cluster.replicas(e.getKey()).isEmpty())
                     .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .thenCompose(this::moveToFolders)
-        .handle(
-            (r, e) -> {
-              if (e == null)
-                throw new RuntimeException(
-                    "Fail to expect a ReplicaNotAvailableException return from the API. "
-                        + "A data folder movement might just triggered. "
-                        + "Is there another Admin Client manipulating the cluster state?");
-              if (e instanceof CompletionException
-                  && (e.getCause()) instanceof ReplicaNotAvailableException) return null;
-              throw (RuntimeException) e;
-            });
+        .thenCompose(
+            preferredAssignments ->
+                preferredAssignments.isEmpty()
+                    ? CompletableFuture.completedStage(null)
+                    : this.moveToFolders(preferredAssignments)
+                        .handle(
+                            (r, e) -> {
+                              if (e == null)
+                                throw new RuntimeException(
+                                    "Fail to expect a ReplicaNotAvailableException return from the API. "
+                                        + "A data folder movement might just triggered. "
+                                        + "Is there another Admin Client manipulating the cluster state?");
+                              if (e instanceof ReplicaNotAvailableException) return null;
+                              throw (RuntimeException) e;
+                            }));
   }
 
   @Override

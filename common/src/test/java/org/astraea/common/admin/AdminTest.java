@@ -161,10 +161,13 @@ public class AdminTest {
   void testClusterInfo() {
     try (var admin =
         new AdminImpl(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()))) {
+      var topic0 = Utils.randomString();
+      var topic1 = Utils.randomString();
+      var topic2 = Utils.randomString();
       try (var producer = Producer.of(SERVICE.bootstrapServers())) {
-        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[100]).build());
-        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[55]).build());
-        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[33]).build());
+        producer.send(Record.builder().topic(topic0).key(new byte[100]).build());
+        producer.send(Record.builder().topic(topic1).key(new byte[55]).build());
+        producer.send(Record.builder().topic(topic2).key(new byte[33]).build());
       }
 
       try (var consumer =
@@ -176,6 +179,15 @@ public class AdminTest {
               .build()) {
         Assertions.assertNotEquals(0, consumer.poll(3, Duration.ofSeconds(7)).size());
       }
+
+      admin
+          .setTopicConfigs(
+              Map.ofEntries(
+                  Map.entry(topic0, Map.of(TopicConfig.RETENTION_BYTES_CONFIG, "1111111111")),
+                  Map.entry(topic1, Map.of(TopicConfig.RETENTION_BYTES_CONFIG, "2222222222")),
+                  Map.entry(topic2, Map.of(TopicConfig.RETENTION_BYTES_CONFIG, "3333333333"))))
+          .toCompletableFuture()
+          .join();
 
       var topics =
           admin
@@ -204,6 +216,16 @@ public class AdminTest {
           SERVICE.dataFolders(),
           clusterInfo.brokerFolders(),
           "The log folder information is available from the admin version of ClusterInfo");
+
+      Assertions.assertEquals(
+          Optional.of("1111111111"),
+          clusterInfo.topics().get(topic0).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
+      Assertions.assertEquals(
+          Optional.of("2222222222"),
+          clusterInfo.topics().get(topic1).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
+      Assertions.assertEquals(
+          Optional.of("3333333333"),
+          clusterInfo.topics().get(topic2).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
     }
   }
 
@@ -540,6 +562,50 @@ public class AdminTest {
                           .join())
               .getCause(),
           "Normal exception still propagated");
+    }
+  }
+
+  @Test
+  void testDeclarePreferredFoldersWithNoCrossBrokerMovement() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(10)
+          .numberOfReplicas((short) 1)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(300));
+
+      // 10 replicas
+      var source = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
+      // 10 replicas, all move to another folder within the same broker. No cross broker movement.
+      var target =
+          ClusterInfoBuilder.builder(source)
+              .mapLog(
+                  r ->
+                      Replica.builder(r)
+                          .path(
+                              source.brokerFolders().get(r.nodeInfo().id()).stream()
+                                  .filter(p -> !p.equals(r.path()))
+                                  .findAny()
+                                  .orElseThrow())
+                          .build())
+              .build();
+
+      Assertions.assertDoesNotThrow(
+          () ->
+              admin
+                  .declarePreferredDataFolders(
+                      target
+                          .replicaStream()
+                          .collect(
+                              Collectors.toUnmodifiableMap(
+                                  Replica::topicPartitionReplica, Replica::path)))
+                  .toCompletableFuture()
+                  .join());
     }
   }
 
@@ -1328,7 +1394,7 @@ public class AdminTest {
   void testConnectionQuotas() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.setConnectionQuotas(Map.of(Utils.hostname(), 100)).toCompletableFuture().join();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var quotas =
           admin.quotas(Set.of(QuotaConfigs.IP)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
@@ -1342,6 +1408,7 @@ public class AdminTest {
           });
 
       admin.unsetConnectionQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           0,
           (int)
@@ -1360,7 +1427,7 @@ public class AdminTest {
           .setProducerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(100).perSecond()))
           .toCompletableFuture()
           .join();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var quotas =
           admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
@@ -1373,6 +1440,7 @@ public class AdminTest {
                   DataRate.Byte.of(100).perSecond().byteRate(), quota.limitValue()));
 
       admin.unsetProducerQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           0,
           (int)
@@ -1391,7 +1459,7 @@ public class AdminTest {
           .setConsumerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(1000).perSecond()))
           .toCompletableFuture()
           .join();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var quotas =
           admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
@@ -1404,6 +1472,7 @@ public class AdminTest {
                   DataRate.Byte.of(1000).perSecond().byteRate(), quota.limitValue()));
 
       admin.unsetConsumerQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           0,
           (int)
@@ -1803,6 +1872,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "1:1001",
           admin
@@ -1822,6 +1892,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "1:1001,2:1002",
           admin
@@ -1841,6 +1912,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "1:1001,2:1002",
           admin
@@ -1859,6 +1931,7 @@ public class AdminTest {
                   topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "*",
           admin
@@ -1876,6 +1949,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "*",
           admin
@@ -1914,6 +1988,7 @@ public class AdminTest {
                       "1:1001,2:1003")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(2));
       admin
           .subtractTopicConfigs(
               Map.of(
@@ -1921,6 +1996,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "2:1003",
           admin
@@ -1958,7 +2034,7 @@ public class AdminTest {
                   topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*")))
           .toCompletableFuture()
           .join();
-
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertInstanceOf(
           IllegalArgumentException.class,
           Assertions.assertThrows(

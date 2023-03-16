@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.performance.Performance;
+import org.astraea.app.publisher.MetricPublisher;
 import org.astraea.app.testBandWidth.TestBandWidth;
 import org.astraea.app.version.Version;
 import org.astraea.app.web.WebService;
@@ -39,7 +40,9 @@ public class App {
           "version",
           Version.class,
           "testBandWidth",
-          TestBandWidth.class);
+          TestBandWidth.class,
+          "metric_publisher",
+          MetricPublisher.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 

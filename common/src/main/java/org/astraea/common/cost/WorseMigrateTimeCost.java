@@ -16,35 +16,9 @@
  */
 package org.astraea.common.cost;
 
-import java.time.Duration;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.astraea.common.DataRate;
-import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.Sensor;
-import org.astraea.common.metrics.broker.HasGauge;
-import org.astraea.common.metrics.broker.LogMetrics;
-import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.MetricSensor;
-import org.astraea.common.metrics.stats.Debounce;
-import org.astraea.common.metrics.stats.Max;
-
 /** MoveCost: more max write rate change -> higher migrate cost. */
-public class WorseMigrateTimeCost implements HasMoveCost {
+public class WorseMigrateTimeCost { // implements HasMoveCost {
+  /*
   private static final String REPLICA_WRITE_RATE = "replica_write_rate";
   private static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
   private final Duration duration;
@@ -124,7 +98,7 @@ public class WorseMigrateTimeCost implements HasMoveCost {
 
   /**
    * @return the metrics getters. Those getters are used to fetch mbeans.
-   */
+
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(LogMetrics.Log.SIZE::fetch);
@@ -208,4 +182,5 @@ public class WorseMigrateTimeCost implements HasMoveCost {
   }
 
   public interface WorseLogRateStatisticalBean extends HasGauge<Double> {}
+    */
 }

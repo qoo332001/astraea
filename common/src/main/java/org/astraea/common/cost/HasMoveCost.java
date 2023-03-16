@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
@@ -32,16 +31,15 @@ public interface HasMoveCost extends CostFunction {
   HasMoveCost EMPTY = (originClusterInfo, newClusterInfo, clusterBean) -> MoveCost.EMPTY;
 
   static HasMoveCost of(Collection<HasMoveCost> hasMoveCosts) {
-    var fetcher =
-        Fetcher.of(
+    var sensor =
+        MetricSensor.of(
             hasMoveCosts.stream()
-                .map(CostFunction::fetcher)
+                .map(CostFunction::metricSensor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
-    var sensors =
-        hasMoveCosts.stream().flatMap(x -> x.sensors().stream()).collect(Collectors.toList());
     return new HasMoveCost() {
+
       @Override
       public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
         var costs =
@@ -51,28 +49,10 @@ public interface HasMoveCost extends CostFunction {
 
         var movedReplicaLeaderSize =
             costs.stream()
-                .flatMap(c ->
-                        c.movedReplicaLeaderSize().entrySet().stream())
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, Map.Entry::getValue,
-                            (l, r) ->
-                                    l.add(r.bytes())));
-
-        var movedReplicaLeaderInSize =
-            costs.stream()
-                .flatMap(c -> c.movedReplicaLeaderInSize().entrySet().stream())
+                .flatMap(c -> c.movedReplicaLeaderSize().entrySet().stream())
                 .collect(
                     Collectors.toUnmodifiableMap(
                         Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
-
-        var movedReplicaLeaderOutSize =
-            costs.stream()
-                .flatMap(c -> c.movedReplicaLeaderOutSize().entrySet().stream())
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
-
         var movedReplicaSize =
             costs.stream()
                 .flatMap(c -> c.movedRecordSize().entrySet().stream())
@@ -97,20 +77,11 @@ public interface HasMoveCost extends CostFunction {
                 .collect(
                     Collectors.toUnmodifiableMap(
                         Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+        var overflow = costs.stream().anyMatch(MoveCost::overflow);
         return new MoveCost() {
           @Override
           public Map<Integer, DataSize> movedReplicaLeaderSize() {
             return movedReplicaLeaderSize;
-          }
-
-          @Override
-          public Map<Integer, DataSize> movedReplicaLeaderInSize() {
-            return movedReplicaLeaderInSize;
-          }
-
-          @Override
-          public Map<Integer, DataSize> movedReplicaLeaderOutSize() {
-            return movedReplicaLeaderOutSize;
           }
 
           @Override
@@ -136,13 +107,17 @@ public interface HasMoveCost extends CostFunction {
       }
 
       @Override
-      public Optional<Fetcher> fetcher() {
-        return fetcher;
+      public Optional<MetricSensor> metricSensor() {
+        return sensor;
       }
 
       @Override
-      public Collection<MetricSensor> sensors() {
-        return sensors;
+      public String toString() {
+        return "MoveCosts["
+            + hasMoveCosts.stream()
+                .map(cost -> "\"" + cost.toString() + "\"")
+                .collect(Collectors.joining(", "))
+            + "]";
       }
     };
   }

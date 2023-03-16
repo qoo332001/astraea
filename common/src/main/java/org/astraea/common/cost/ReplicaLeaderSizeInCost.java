@@ -17,13 +17,11 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.metrics.collector.Fetcher;
 
 /**
  * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
@@ -36,11 +34,6 @@ public class ReplicaLeaderSizeInCost implements HasMoveCost {
   /**
    * @return the metrics getters. Those getters are used to fetch mbeans.
    */
-  @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.empty();
-  }
-
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var changePartitions = ClusterInfo.findNonFulfilledAllocation(before, after);

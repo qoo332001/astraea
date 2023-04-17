@@ -50,7 +50,6 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.metrics.collector.LocalMetricCollector;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -103,18 +102,18 @@ class BalancerHandler implements Handler {
     synchronized (this) {
       var taskId = UUID.randomUUID().toString();
       try {
-        if (time==1) {
+        if (time == 1) {
           var collectorBuilder = MetricCollector.local().interval(sampleInterval);
           request
-                  .algorithmConfig
-                  .clusterCostFunction()
-                  .metricSensor()
-                  .ifPresent(collectorBuilder::addMetricSensor);
+              .algorithmConfig
+              .clusterCostFunction()
+              .metricSensor()
+              .ifPresent(collectorBuilder::addMetricSensor);
           request
-                  .algorithmConfig
-                  .moveCostFunction()
-                  .metricSensor()
-                  .ifPresent(collectorBuilder::addMetricSensor);
+              .algorithmConfig
+              .moveCostFunction()
+              .metricSensor()
+              .ifPresent(collectorBuilder::addMetricSensor);
           freshJmxAddresses().forEach(collectorBuilder::registerJmx);
           metricCollector = collectorBuilder.build();
           time++;
@@ -136,7 +135,7 @@ class BalancerHandler implements Handler {
                 new RuntimeException("Failed to generate balance plan: " + taskId, error)
                     .printStackTrace();
             });
-        task.whenComplete((result, error) -> mc.close());
+        // task.whenComplete((result, error) -> mc.close());
         taskMetadata.put(taskId, request);
         planGenerations.put(taskId, task);
       } catch (RuntimeException e) {
@@ -387,7 +386,7 @@ class BalancerHandler implements Handler {
             "org.astraea.common.cost.RecordSizeCost",
             "org.astraea.common.cost.ReplicaNumberCost",
             "org.astraea.common.cost.ReplicaLeaderSizeCost",
-                "org.astraea.common.cost.PartitionMigrateTimeCost" );
+            "org.astraea.common.cost.PartitionMigrateTimeCost");
 
     HasClusterCost clusterCost() {
       if (clusterCosts.isEmpty())

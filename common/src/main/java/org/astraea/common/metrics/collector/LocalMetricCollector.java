@@ -143,12 +143,18 @@ public class LocalMetricCollector implements MetricCollector {
                             } catch (NoSuchElementException e) {
                               // MBeanClient can throw NoSuchElementException if the result of query
                               // is empty
+                              System.out.println("----------------------------");
                               e.printStackTrace();
+                              System.out.println("----------------------------");
                               sensor.getValue().accept(identity.id, e);
                             }
                           }
                         } catch (InterruptedException e) {
                           // swallow the interrupt exception and exit immediately
+                          System.out.println("----------------------------");
+                          e.printStackTrace();
+                          System.out.println(e.getMessage());
+                          System.out.println("----------------------------");
                           Thread.currentThread().interrupt();
                         } finally {
                           // if we pull out an identity, we must put it back

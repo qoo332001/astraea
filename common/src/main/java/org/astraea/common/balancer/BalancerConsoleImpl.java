@@ -258,11 +258,14 @@ public class BalancerConsoleImpl implements BalancerConsole {
                       .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
                       .map(Replica::topicPartitionReplica)
                       .collect(Collectors.toUnmodifiableSet());
+              /*
               if (!ongoingMigration.isEmpty())
                 throw new IllegalStateException(
                     "Another rebalance task might be working on. "
                         + "The following topic/partition has ongoing migration: "
                         + ongoingMigration);
+
+               */
               return cluster;
             });
   }

@@ -71,5 +71,5 @@ public interface MetricSensor {
    * @param bean current cluster bean
    * @return java metrics
    */
-  Collection<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean);
+  Collection<? extends HasBeanObject> fetch(int identity, MBeanClient client, ClusterBean bean);
 }

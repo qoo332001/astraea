@@ -107,18 +107,6 @@ public interface MoveCost {
     };
   }
 
-  /*
-  static MoveCost brokerWorseMigrateTime(Map<Integer, Double> value) {
-    return new MoveCost() {
-      @Override
-      public Map<Integer, Double> brokerWorseMigrateTime() {
-        return value;
-      }
-    };
-  }
-
-   */
-
   /**
    * @return the leader data size of moving replicas. Noted that the "removing" replicas are
    *     excluded.

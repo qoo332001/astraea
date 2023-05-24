@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 interface Handler {
@@ -100,7 +101,7 @@ interface Handler {
    *
    * @return json object to return
    */
-  default CompletionStage<? extends Response> put(Channel channel) {
+  default CompletionStage<? extends Response> put(Channel channel) throws ExecutionException, InterruptedException {
     return CompletableFuture.completedFuture(Response.NOT_FOUND);
   }
 }

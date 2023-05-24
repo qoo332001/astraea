@@ -100,6 +100,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
         brokerMigrateSecond.values().stream()
             .max(Comparator.comparing(Function.identity()))
             .orElse(Long.MAX_VALUE);
+    System.out.println("migrate time: " + planMigrateSecond);
     return () -> planMigrateSecond > this.maxMigrateTime.getSeconds();
   }
 

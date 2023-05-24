@@ -27,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.astraea.common.Configuration;
@@ -108,7 +109,7 @@ class BalancerHandler implements Handler, AutoCloseable {
   }
 
   @Override
-  public CompletionStage<Response> put(Channel channel) {
+  public CompletionStage<Response> put(Channel channel) throws ExecutionException, InterruptedException {
     final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
     final var taskId = request.id;
     final var taskPhase = balancerConsole.taskPhase(taskId);
@@ -136,7 +137,7 @@ class BalancerHandler implements Handler, AutoCloseable {
           if (error != null)
             new RuntimeException("Failed to execute balance plan: " + taskId, error)
                 .printStackTrace();
-        });
+        }).toCompletableFuture().get();
     planExecutions.put(taskId, task);
 
     return CompletableFuture.completedFuture(new PutPlanResponse(taskId));

@@ -67,7 +67,8 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                     .declarePreferredDataFolders(
                         replicas.stream()
                             .collect(
-                                Collectors.toMap(Replica::topicPartitionReplica, Replica::path)))
+                                Collectors.toMap(
+                                    Replica::topicPartitionReplica, Replica::path, (x, y) -> x)))
                     .thenApply((ignore) -> replicas))
         // step 1: move replicas to specify brokers
         .thenCompose(

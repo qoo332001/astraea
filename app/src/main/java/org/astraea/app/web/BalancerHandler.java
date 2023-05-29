@@ -72,7 +72,8 @@ class BalancerHandler implements Handler, AutoCloseable {
   }
 
   @Override
-  public CompletionStage<Response> post(Channel channel) {
+  public CompletionStage<Response> post(Channel channel)
+      throws ExecutionException, InterruptedException {
     var balancerPostRequest = channel.request(TypeRef.of(BalancerPostRequest.class));
     var request =
         admin
@@ -97,11 +98,13 @@ class BalancerHandler implements Handler, AutoCloseable {
               .checkNoOngoingMigration(true)
               .generate();
       task.whenComplete(
-          (result, error) -> {
-            if (error != null)
-              new RuntimeException("Failed to generate balance plan: " + taskId, error)
-                  .printStackTrace();
-          });
+              (result, error) -> {
+                if (error != null)
+                  new RuntimeException("Failed to generate balance plan: " + taskId, error)
+                      .printStackTrace();
+              })
+          .toCompletableFuture()
+          .get();
       taskMetadata.put(taskId, request);
       planGenerations.put(taskId, task);
       return CompletableFuture.completedFuture(new PostPlanResponse(taskId));
@@ -109,7 +112,8 @@ class BalancerHandler implements Handler, AutoCloseable {
   }
 
   @Override
-  public CompletionStage<Response> put(Channel channel) throws ExecutionException, InterruptedException {
+  public CompletionStage<Response> put(Channel channel)
+      throws ExecutionException, InterruptedException {
     final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
     final var taskId = request.id;
     final var taskPhase = balancerConsole.taskPhase(taskId);
@@ -133,11 +137,13 @@ class BalancerHandler implements Handler, AutoCloseable {
             .checkPlanConsistency(true)
             .execute(taskId);
     task.whenComplete(
-        (ignore, error) -> {
-          if (error != null)
-            new RuntimeException("Failed to execute balance plan: " + taskId, error)
-                .printStackTrace();
-        }).toCompletableFuture().get();
+            (ignore, error) -> {
+              if (error != null)
+                new RuntimeException("Failed to execute balance plan: " + taskId, error)
+                    .printStackTrace();
+            })
+        .toCompletableFuture()
+        .get();
     planExecutions.put(taskId, task);
 
     return CompletableFuture.completedFuture(new PutPlanResponse(taskId));

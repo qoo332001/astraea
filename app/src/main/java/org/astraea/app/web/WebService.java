@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -98,8 +101,14 @@ public class WebService implements AutoCloseable {
             .receivers(receivers)
             .sensorsSupplier(sensorsSupplier)
             .build();
+    int maximumPoolSize = 1;
+    int keepAliveTime = 6000;
+    ExecutorService executorService =
+        new ThreadPoolExecutor(
+            0, maximumPoolSize, keepAliveTime, TimeUnit.SECONDS, new SynchronousQueue<>());
 
     server = Utils.packException(() -> HttpServer.create(new InetSocketAddress(port), 0));
+    server.setExecutor(executorService);
     server.createContext("/topics", to(new TopicHandler(admin)));
     server.createContext("/groups", to(new GroupHandler(admin)));
     server.createContext("/brokers", to(new BrokerHandler(admin)));

@@ -23,7 +23,6 @@ import org.apache.kafka.common.Node;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.ClusterBean;
@@ -64,9 +63,9 @@ class PartitionMigrateTimeCostTest {
     Assertions.assertEquals(Math.max(30000000 / 3000, 20000000 / 3500), migrationCost.get(2));
   }
 
-  private List<NodeInfo> brokers() {
+  private List<Broker> brokers() {
     return before().stream()
-        .map(Replica::nodeInfo)
+        .map(Replica::broker)
         .distinct()
         .map(
             nodeInfo ->
@@ -95,7 +94,7 @@ class PartitionMigrateTimeCostTest {
     Assertions.assertTrue(overflowCost.overflow());
   }
 
-  public static ClusterInfo of(List<Replica> replicas, List<NodeInfo> nodeInfos) {
+  public static ClusterInfo of(List<Replica> replicas, List<Broker> nodeInfos) {
     return ClusterInfo.of("fake", nodeInfos, Map.of(), replicas);
   }
 
@@ -106,28 +105,28 @@ class PartitionMigrateTimeCostTest {
             .partition(10)
             .isLeader(true)
             .size(10000000)
-            .nodeInfo(NodeInfo.of(1, "", -1))
+            .broker(Broker.of(1, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(11)
             .isLeader(true)
             .size(20000000)
-            .nodeInfo(NodeInfo.of(2, "", -1))
+            .broker(Broker.of(2, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(true)
             .size(30000000)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(false)
             .size(30000000)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .build());
   }
 
@@ -138,28 +137,28 @@ class PartitionMigrateTimeCostTest {
             .partition(10)
             .isLeader(true)
             .size(10000000)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(11)
             .isLeader(true)
             .size(20000000)
-            .nodeInfo(NodeInfo.of(1, "", -1))
+            .broker(Broker.of(1, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(true)
             .size(30000000)
-            .nodeInfo(NodeInfo.of(2, "", -1))
+            .broker(Broker.of(2, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(false)
             .size(30000000)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .build());
   }
 

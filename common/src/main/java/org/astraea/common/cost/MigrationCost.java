@@ -45,27 +45,43 @@ public class MigrationCost {
       ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var migrateInBytes = recordSizeToSync(before, after);
     var migrateOutBytes = recordSizeToFetch(before, after);
+    var newMigrateInBytes = newRecordSizeToSync(before, after);
+    var newMigrateOutBytes = newRecordSizeToFetch(before, after);
 
-    System.out.println("migration in sum: " + migrateInBytes.values().stream().mapToLong(x -> x).sum());
-    System.out.println("migration out sum: " + migrateOutBytes.values().stream().mapToLong(x -> x).sum());
+    System.out.println(
+        "migration in sum: " + migrateInBytes.values().stream().mapToLong(x -> x).sum());
+    System.out.println(
+        "migration out sum: " + migrateOutBytes.values().stream().mapToLong(x -> x).sum());
+    System.out.println(
+        "new migration in sum: " + newMigrateInBytes.values().stream().mapToLong(x -> x).sum());
+    System.out.println(
+        "new migration out sum: " + newMigrateOutBytes.values().stream().mapToLong(x -> x).sum());
 
-    var migrateReplicaNum = replicaNumChanged(before, after);
-    var migrateInLeader = replicaLeaderToAdd(before, after);
-    var migrateOutLeader = replicaLeaderToRemove(before, after);
+    // var migrateReplicaNum = replicaNumChanged(before, after);
+    //   var migrateInLeader = replicaLeaderToAdd(before, after);
+    //  var migrateOutLeader = replicaLeaderToRemove(before, after);
     var brokerMigrationSecond = brokerMigrationSecond(before, after, clusterBean);
     return List.of(
-        new MigrationCost(TO_SYNC_BYTES, migrateInBytes),
-        new MigrationCost(TO_FETCH_BYTES, migrateOutBytes),
-        new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum),
-        new MigrationCost(PARTITION_MIGRATED_TIME, brokerMigrationSecond),
-        new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
-        new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader),
-        new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum));
+        new MigrationCost(TO_SYNC_BYTES, newMigrateInBytes),
+        new MigrationCost(TO_FETCH_BYTES, newMigrateOutBytes),
+        // new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum),
+        new MigrationCost(PARTITION_MIGRATED_TIME, brokerMigrationSecond));
+    //   new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
+    //  new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader),
+    //   new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum));
   }
 
   public MigrationCost(String name, Map<Integer, Long> brokerCosts) {
     this.name = name;
     this.brokerCosts = brokerCosts;
+  }
+
+  private static Map<Integer, Long> newRecordSizeToFetch(ClusterInfo before, ClusterInfo after) {
+    return newMigratedChanged(before, after, true, (ignore) -> true, Replica::size);
+  }
+
+  private static Map<Integer, Long> newRecordSizeToSync(ClusterInfo before, ClusterInfo after) {
+    return newMigratedChanged(before, after, false, (ignore) -> true, Replica::size);
   }
 
   // migrate out(leader)
@@ -100,18 +116,12 @@ public class MigrationCost {
       ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var brokerInRate =
         Map.of(
-            1,
-                1.1748191951767201E9,
-            2,
-                1.1748191951767201E9,
-            3,
-                1.1748191951767201E9,
-            4,
-                1.1748191951767201E9,
-            5,
-                1.1748191951767201E9,
-            6,
-                1.1748191951767201E9);
+            1, 1.075997992640441E9,
+            2, 1.075997992640441E9,
+            3, 1.075997992640441E9,
+            4, 1.075997992640441E9,
+            5, 1.075997992640441E9,
+            6, 1.075997992640441E9);
     var brokerOutRate =
         Map.of(
             1,
@@ -128,44 +138,44 @@ public class MigrationCost {
             1.1691926483711882E9);
 
     /*
-    var brokerInRate =
-        before.nodes().stream()
-            .collect(
-                Collectors.toMap(
-                    NodeInfo::id,
-                    nodeInfo ->
-                        brokerMaxRate(
-                            nodeInfo.id(),
-                            clusterBean,
-                            PartitionMigrateTimeCost.MaxReplicationInRateBean.class)));
-    var brokerOutRate =
-        before.nodes().stream()
-            .collect(
-                Collectors.toMap(
-                    NodeInfo::id,
-                    nodeInfo ->
-                        brokerMaxRate(
-                            nodeInfo.id(),
-                            clusterBean,
-                            PartitionMigrateTimeCost.MaxReplicationOutRateBean.class)));
+       var brokerInRate =
+           before.brokers().stream()
+               .collect(
+                   Collectors.toMap(
+                       Broker::id,
+                       nodeInfo ->
+                           brokerMaxRate(
+                               nodeInfo.id(),
+                               clusterBean,
+                               PartitionMigrateTimeCost.MaxReplicationInRateBean.class)));
+       var brokerOutRate =
+           before.brokers().stream()
+               .collect(
+                   Collectors.toMap(
+                       Broker::id,
+                       nodeInfo ->
+                           brokerMaxRate(
+                               nodeInfo.id(),
+                               clusterBean,
+                               PartitionMigrateTimeCost.MaxReplicationOutRateBean.class)));
+    */
 
-     */
     var brokerMigrateInSecond =
-        MigrationCost.recordSizeToSync(before, after).entrySet().stream()
+        MigrationCost.newRecordSizeToSync(before, after).entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
                     brokerSize -> brokerSize.getValue() / brokerInRate.get(brokerSize.getKey())));
     var brokerMigrateOutSecond =
-        MigrationCost.recordSizeToFetch(before, after).entrySet().stream()
+        MigrationCost.newRecordSizeToFetch(before, after).entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
                     brokerSize -> brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey())));
     brokerInRate.forEach((b, rate) -> System.out.println("broker: " + b + " inRate: " + rate));
     brokerOutRate.forEach((b, rate) -> System.out.println("broker: " + b + " OutRate: " + rate));
-    return Stream.concat(before.nodes().stream(), after.nodes().stream())
-        .map(NodeInfo::id)
+    return Stream.concat(before.brokers().stream(), after.brokers().stream())
+        .map(Broker::id)
         .distinct()
         .collect(
             Collectors.toMap(
@@ -203,34 +213,33 @@ public class MigrationCost {
     var dest = migrateOut ? before : after;
     var changePartitions = ClusterInfo.findNonFulfilledAllocation(source, dest);
 
-    if (migrateOut){
-      System.out.println("out size: "  +changePartitions.stream()
-              .flatMap(
+    if (migrateOut) {
+      System.out.println(
+          "out number: "
+              + changePartitions.stream()
+                  .flatMap(
                       p ->
-                              dest.replicas(p).stream()
-                                      .filter(predicate)
-                                      .filter(r -> !source.replicas(p).contains(r)))
-              .map(
+                          dest.replicas(p).stream()
+                              .filter(predicate)
+                              .filter(r -> !source.replicas(p).contains(r)))
+                  .map(
                       r -> {
-                        if (migrateOut) return dest.replicaLeader(r.topicPartition()).orElse(r);
-                        return r;
+                        return dest.replicaLeader(r.topicPartition()).orElse(r);
                       })
-              .toList().size());
-    }else {
-      System.out.println("in size: "  +changePartitions.stream()
-              .flatMap(
+                  .toList()
+                  .size());
+    } else {
+      System.out.println(
+          "in number: "
+              + changePartitions.stream()
+                  .flatMap(
                       p ->
-                              dest.replicas(p).stream()
-                                      .filter(predicate)
-                                      .filter(r -> !source.replicas(p).contains(r)))
-              .map(
-                      r -> {
-                        if (migrateOut) return dest.replicaLeader(r.topicPartition()).orElse(r);
-                        return r;
-                      })
-              .toList().size());
+                          dest.replicas(p).stream()
+                              .filter(predicate)
+                              .filter(r -> !source.replicas(p).contains(r)))
+                  .toList()
+                  .size());
     }
-
 
     var cost =
         changePartitions.stream()
@@ -254,6 +263,78 @@ public class MigrationCost {
         .distinct()
         .parallel()
         .collect(Collectors.toMap(Function.identity(), n -> cost.getOrDefault(n, 0L)));
+  }
+
+  private static Map<Integer, Long> newMigratedChanged(
+      ClusterInfo before,
+      ClusterInfo after,
+      boolean migrateOut,
+      Predicate<Replica> predicate,
+      Function<Replica, Long> replicaFunction) {
+    var source = migrateOut ? after : before;
+    var dest = migrateOut ? before : after;
+    var changePartitions = ClusterInfo.findNonFulfilledAllocation(source, dest);
+
+    if (migrateOut) {
+      System.out.println(
+          "new out number: "
+              + changePartitions.stream()
+                  .flatMap(
+                      p ->
+                          dest.replicas(p).stream()
+                              .filter(predicate)
+                              .filter(
+                                  r ->
+                                      source.replicas(p).stream()
+                                          .noneMatch(x -> checkoutSameReplica(r, x))))
+                  .map(r -> dest.replicaLeader(r.topicPartition()).orElse(r))
+                  .toList()
+                  .size());
+    } else {
+      System.out.println(
+          "new in number: "
+              + changePartitions.stream()
+                  .flatMap(
+                      p ->
+                          dest.replicas(p).stream()
+                              .filter(predicate)
+                              .filter(
+                                  r ->
+                                      source.replicas(p).stream()
+                                          .noneMatch(x -> checkoutSameReplica(r, x))))
+                  .toList()
+                  .size());
+    }
+
+    var cost =
+        changePartitions.stream()
+            .flatMap(
+                p ->
+                    dest.replicas(p).stream()
+                        .filter(predicate)
+                        .filter(
+                            r ->
+                                source.replicas(p).stream()
+                                    .noneMatch(x -> checkoutSameReplica(r, x))))
+            .map(
+                r -> {
+                  if (migrateOut) return dest.replicaLeader(r.topicPartition()).orElse(r);
+                  return r;
+                })
+            .collect(
+                Collectors.groupingBy(
+                    r -> r.broker().id(),
+                    Collectors.mapping(
+                        Function.identity(), Collectors.summingLong(replicaFunction::apply))));
+    return Stream.concat(dest.brokers().stream(), source.brokers().stream())
+        .map(Broker::id)
+        .distinct()
+        .parallel()
+        .collect(Collectors.toMap(Function.identity(), n -> cost.getOrDefault(n, 0L)));
+  }
+
+  private static boolean checkoutSameReplica(Replica replica, Replica replica2) {
+    return  replica.topicPartitionReplica().equals(replica2.topicPartitionReplica());
   }
 
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {

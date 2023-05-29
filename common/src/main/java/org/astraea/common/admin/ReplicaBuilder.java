@@ -275,21 +275,8 @@ public class ReplicaBuilder {
       if (o == null || getClass() != o.getClass()) return false;
       ReplicaImpl replica = (ReplicaImpl) o;
       return partition == replica.partition
-          && lag == replica.lag
-          && size == replica.size
-          && internal == replica.internal
-          && isLeader == replica.isLeader
-          && isAdding == replica.isAdding
-          && isRemoving == replica.isRemoving
-          && isSync == replica.isSync
-          && isFuture == replica.isFuture
-          && isOffline == replica.isOffline
-          && isPreferredLeader == replica.isPreferredLeader
           && topic.equals(replica.topic)
-          && broker.id() == replica.broker.id()
-          && broker.host().equals(replica.broker.host())
-          && broker.port() == replica.broker.port()
-          && Objects.equals(path, replica.path);
+          && broker.id() == replica.broker.id();
     }
 
     @Override
@@ -312,21 +299,7 @@ public class ReplicaBuilder {
 
     @Override
     public int hashCode() {
-      return Objects.hash(
-          topic,
-          partition,
-          broker,
-          lag,
-          size,
-          internal,
-          isLeader,
-          isAdding,
-          isRemoving,
-          isSync,
-          isFuture,
-          isOffline,
-          isPreferredLeader,
-          path);
+      return Objects.hash(topic, partition, broker);
     }
   }
 }

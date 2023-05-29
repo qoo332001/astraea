@@ -83,7 +83,8 @@ interface Handler {
    *
    * @return json object to return
    */
-  default CompletionStage<? extends Response> post(Channel channel) {
+  default CompletionStage<? extends Response> post(Channel channel)
+      throws ExecutionException, InterruptedException {
     return CompletableFuture.completedFuture(Response.NOT_FOUND);
   }
 
@@ -101,7 +102,8 @@ interface Handler {
    *
    * @return json object to return
    */
-  default CompletionStage<? extends Response> put(Channel channel) throws ExecutionException, InterruptedException {
+  default CompletionStage<? extends Response> put(Channel channel)
+      throws ExecutionException, InterruptedException {
     return CompletableFuture.completedFuture(Response.NOT_FOUND);
   }
 }

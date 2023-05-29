@@ -33,6 +33,7 @@ POST /balancer
 
 costConfig: 
 
+<<<<<<< HEAD
 | config key                  | config value                                 | value format                                                                                                                 |
 | --------------------------- |----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | max.migrated.size           | 設定最大可搬移的資料量                                  | "`data size` +  `unit`" ex.100KB, 500MB, 3GB                                                                                 |
@@ -42,6 +43,17 @@ costConfig:
 | max.migrated.time.limit     | 設定最大可接受的partition搬移時間                        | "`limit second`" ex. 1,2,3,100                                                                                               |
 | max.broker.total.disk.space | 設定搬移過程中broker最大可以佔用的replica 資料量              | "`broker Id` + `:` + `data size` " ex. "0:1500MB ,1:1000MB ,2:1500MB"                                                        |
 | max.broker.path.disk.space  | 設定搬移過程中broker上的data folder最大可以佔用的replica 資料量 | "`broker Id`  + `-` + `data path` + `:` + `data size` " ex. "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:900MB" |
+=======
+| config key                     | config value                                                 | value format                                                 |
+| ------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| max.migrated.size              | 設定最大可搬移的資料量                                       | "`data size` +  `unit`" ex.100KB, 500MB, 3GB                 |
+| max.migrated.leader.number     | 設定最大可搬移的leader 數量                                  | "`limit number`" ex. 1,2,3,100                               |
+| max.broker.total.leader.number | 設定一個broker最大可持有的leader數量                         | "`broker Id` + `:` + `limit number`" ex. "0:150 ,1:30"       |
+| max.migrated.replica.number    | 設定最大可搬移的replica 數量                                 | "`limit number`" ex. 1,2,3,100                               |
+| max.migrated.leader.size       | 設定最大可搬移的leader 資料量                                | "`data size` +  `unit`" ex.100KB, 500MB, 3GB                 |
+| max.broker.total.disk.space    | 設定搬移過程中broker最大可以佔用的replica 資料量             | "`broker Id` + `:` + `data size` " ex. "0:1500MB ,1:1000MB ,2:1500MB" |
+| max.broker.path.disk.space     | 設定搬移過程中broker上的data folder最大可以佔用的replica 資料量 | "`broker Id`  + `-` + `data path` + `:` + `data size` " ex. "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:900MB" |
+>>>>>>> 79b41b9d9d267f0b6a8f8653f30917dbedd3b7eb
 
 目前支援的 Cost Function
 

@@ -167,7 +167,7 @@ class ShuffleTweakerTest {
         Replica.builder()
             .topic("topic")
             .partition(0)
-            .broker(nodeA)
+            .brokerId(nodeA.id())
             .lag(0)
             .size(0)
             .isLeader(false)
@@ -185,8 +185,8 @@ class ShuffleTweakerTest {
                     .isLeader(true)
                     .isPreferredLeader(true)
                     .build(),
-                Replica.builder(base).topic("normal-topic").broker(nodeB).build(),
-                Replica.builder(base).topic("normal-topic").broker(nodeC).build(),
+                Replica.builder(base).topic("normal-topic").brokerId(nodeB.id()).build(),
+                Replica.builder(base).topic("normal-topic").brokerId(nodeC.id()).build(),
                 Replica.builder(base)
                     .topic("offline-single")
                     .isPreferredLeader(true)
@@ -195,10 +195,10 @@ class ShuffleTweakerTest {
                 Replica.builder(base)
                     .topic("no-leader")
                     .isPreferredLeader(true)
-                    .broker(nodeA)
+                    .brokerId(nodeA.id())
                     .build(),
-                Replica.builder(base).topic("no-leader").broker(nodeB).build(),
-                Replica.builder(base).topic("no-leader").broker(nodeC).build()));
+                Replica.builder(base).topic("no-leader").brokerId(nodeB.id()).build(),
+                Replica.builder(base).topic("no-leader").brokerId(nodeC.id()).build()));
     shuffleTweaker
         .generate(allocation)
         .limit(30)
@@ -266,4 +266,81 @@ class ShuffleTweakerTest {
               }
             });
   }
+<<<<<<< HEAD
+=======
+
+  @Test
+  void testAllowedBrokers() {
+    var notAllowed = ThreadLocalRandom.current().nextInt(1, 4);
+    var tweaker = ShuffleTweaker.builder().allowedBrokers(b -> b != notAllowed).build();
+
+    var testCluster =
+        ClusterInfo.builder()
+            .addNode(Set.of(1, 2, 3))
+            .addFolders(Map.of(1, Set.of("/folder")))
+            .addFolders(Map.of(2, Set.of("/folder")))
+            .addFolders(Map.of(3, Set.of("/folder")))
+            .addTopic("A", 6, (short) 2)
+            .addTopic("B", 6, (short) 2)
+            .addTopic("C", 6, (short) 2)
+            .build();
+    for (int i = 0; i < 100; i++) {
+      var result = tweaker.generate(testCluster).findFirst().orElseThrow();
+      var expected =
+          testCluster
+              .replicaStream()
+              .map(Replica::topicPartitionReplica)
+              .filter(x -> x.brokerId() == notAllowed)
+              .collect(Collectors.toSet());
+      var actual =
+          result
+              .replicaStream()
+              .map(Replica::topicPartitionReplica)
+              .filter(x -> x.brokerId() == notAllowed)
+              .collect(Collectors.toSet());
+      Assertions.assertEquals(expected, actual, "Replica at not allowed broker should stay");
+      Assertions.assertNotEquals(
+          Set.of(),
+          ClusterInfo.findNonFulfilledAllocation(testCluster, result),
+          "Some tweak has been performed");
+    }
+  }
+
+  @Test
+  void testAllowedReplicas() {
+    var tweaker = ShuffleTweaker.builder().allowedReplicas(Replica::isFollower).build();
+
+    var testCluster =
+        ClusterInfo.builder()
+            .addNode(Set.of(1, 2, 3))
+            .addFolders(Map.of(1, Set.of("/folder")))
+            .addFolders(Map.of(2, Set.of("/folder")))
+            .addFolders(Map.of(3, Set.of("/folder")))
+            .addTopic("A", 6, (short) 2)
+            .addTopic("B", 6, (short) 2)
+            .addTopic("C", 6, (short) 2)
+            .build();
+
+    for (int i = 0; i < 100; i++) {
+      var result = tweaker.generate(testCluster).findFirst().orElseThrow();
+      var expected =
+          testCluster
+              .replicaStream()
+              .filter(Replica::isLeader)
+              .map(Replica::topicPartitionReplica)
+              .collect(Collectors.toSet());
+      var actual =
+          result
+              .replicaStream()
+              .filter(Replica::isLeader)
+              .map(Replica::topicPartitionReplica)
+              .collect(Collectors.toSet());
+      Assertions.assertEquals(expected, actual, "Only follower can be tweaked");
+      Assertions.assertNotEquals(
+          Set.of(),
+          ClusterInfo.findNonFulfilledAllocation(testCluster, result),
+          "Some tweak has been performed");
+    }
+  }
+>>>>>>> 46cb1e1a04219c1a74260e5d0553ea391cf97d93
 }

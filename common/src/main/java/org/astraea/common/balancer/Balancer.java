@@ -38,7 +38,23 @@ public interface Balancer {
       ClusterInfo initialClusterInfo,
       ClusterCost initialClusterCost,
       ClusterInfo proposal,
-      ClusterCost proposalClusterCost) {}
+      ClusterCost proposalClusterCost) {
+
+    /**
+     * The {@link ClusterCost} score of the original {@link ClusterInfo} when this plan is start
+     * generating.
+     */
+    @Override
+    public ClusterCost initialClusterCost() {
+      return initialClusterCost;
+    }
+
+    /** The {@link ClusterCost} score of the proposed new allocation. */
+    @Override
+    public ClusterCost proposalClusterCost() {
+      return proposalClusterCost;
+    }
+  }
 
   /** The official implementation of {@link Balancer}. */
   enum Official implements EnumInfo {

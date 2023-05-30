@@ -58,16 +58,16 @@ public class MigrationCost {
         "new migration out sum: " + newMigrateOutBytes.values().stream().mapToLong(x -> x).sum());
 
     // var migrateReplicaNum = replicaNumChanged(before, after);
-    //   var migrateInLeader = replicaLeaderToAdd(before, after);
-    //  var migrateOutLeader = replicaLeaderToRemove(before, after);
+       var migrateInLeader = replicaLeaderToAdd(before, after);
+      var migrateOutLeader = replicaLeaderToRemove(before, after);
     var brokerMigrationSecond = brokerMigrationSecond(before, after, clusterBean);
     return List.of(
         new MigrationCost(TO_SYNC_BYTES, newMigrateInBytes),
         new MigrationCost(TO_FETCH_BYTES, newMigrateOutBytes),
         // new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum),
-        new MigrationCost(PARTITION_MIGRATED_TIME, brokerMigrationSecond));
-    //   new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
-    //  new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader),
+        new MigrationCost(PARTITION_MIGRATED_TIME, brokerMigrationSecond),
+        new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
+       new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader));
     //   new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum));
   }
 
@@ -255,7 +255,7 @@ public class MigrationCost {
                 })
             .collect(
                 Collectors.groupingBy(
-                    r -> r.broker().id(),
+                    r -> r.brokerId(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
     return Stream.concat(dest.brokers().stream(), source.brokers().stream())
@@ -323,7 +323,7 @@ public class MigrationCost {
                 })
             .collect(
                 Collectors.groupingBy(
-                    r -> r.broker().id(),
+                    r -> r.brokerId(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
     return Stream.concat(dest.brokers().stream(), source.brokers().stream())

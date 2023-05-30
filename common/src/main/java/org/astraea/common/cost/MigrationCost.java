@@ -38,8 +38,7 @@ public class MigrationCost {
   public static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
   public static final String REPLICA_LEADERS_TO_ADDED = "leader number to add";
   public static final String REPLICA_LEADERS_TO_REMOVE = "leader number to remove";
-  public static final String CHANGED_REPLICAS = "changed replicas";
-  public static final String PARTITION_MIGRATED_TIME = "partition migrated time";
+  public static final String MIGRATION_ELAPSED_TIME = "migration elapsed time";
 
   public static List<MigrationCost> migrationCosts(
       ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
@@ -58,16 +57,16 @@ public class MigrationCost {
         "new migration out sum: " + newMigrateOutBytes.values().stream().mapToLong(x -> x).sum());
 
     // var migrateReplicaNum = replicaNumChanged(before, after);
-       var migrateInLeader = replicaLeaderToAdd(before, after);
-      var migrateOutLeader = replicaLeaderToRemove(before, after);
+    var migrateInLeader = replicaLeaderToAdd(before, after);
+    var migrateOutLeader = replicaLeaderToRemove(before, after);
     var brokerMigrationSecond = brokerMigrationSecond(before, after, clusterBean);
     return List.of(
         new MigrationCost(TO_SYNC_BYTES, newMigrateInBytes),
         new MigrationCost(TO_FETCH_BYTES, newMigrateOutBytes),
         // new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum),
-        new MigrationCost(PARTITION_MIGRATED_TIME, brokerMigrationSecond),
+        new MigrationCost(MIGRATION_ELAPSED_TIME, brokerMigrationSecond),
         new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
-       new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader));
+        new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader));
     //   new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum));
   }
 
@@ -247,7 +246,14 @@ public class MigrationCost {
                 p ->
                     dest.replicas(p).stream()
                         .filter(predicate)
-                        .filter(r -> !source.replicas(p).contains(r)))
+                        .filter(
+                            r ->
+                                source.replicas(p).stream()
+                                    .noneMatch(
+                                        sourceReplica ->
+                                            sourceReplica
+                                                .topicPartitionReplica()
+                                                .equals(r.topicPartitionReplica()))))
             .map(
                 r -> {
                   if (migrateOut) return dest.replicaLeader(r.topicPartition()).orElse(r);
@@ -334,7 +340,7 @@ public class MigrationCost {
   }
 
   private static boolean checkoutSameReplica(Replica replica, Replica replica2) {
-    return  replica.topicPartitionReplica().equals(replica2.topicPartitionReplica());
+    return replica.topicPartitionReplica().equals(replica2.topicPartitionReplica());
   }
 
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {

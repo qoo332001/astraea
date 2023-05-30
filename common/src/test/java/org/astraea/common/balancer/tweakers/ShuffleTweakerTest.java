@@ -266,8 +266,6 @@ class ShuffleTweakerTest {
               }
             });
   }
-<<<<<<< HEAD
-=======
 
   @Test
   void testAllowedBrokers() {
@@ -342,5 +340,4 @@ class ShuffleTweakerTest {
           "Some tweak has been performed");
     }
   }
->>>>>>> 46cb1e1a04219c1a74260e5d0553ea391cf97d93
 }

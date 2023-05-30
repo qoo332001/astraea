@@ -98,8 +98,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
         this.brokerMoveCostLimit.entrySet().stream()
             .anyMatch(
                 leaderLimit ->
-                    replicaLeaderIn.getOrDefault(leaderLimit.getKey(), 0L) +
-                            replicaLeaderOut.getOrDefault(leaderLimit.getKey(), 0L)
+                    replicaLeaderIn.getOrDefault(leaderLimit.getKey(), 0L)
+                            + replicaLeaderOut.getOrDefault(leaderLimit.getKey(), 0L)
                         > leaderLimit.getValue());
     if (brokerOverflow) return () -> true;
     var overflow =

@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -124,7 +125,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 60)
-  void testReport() {
+  void testReport() throws ExecutionException, InterruptedException {
     var topics = createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin, metricStore(admin, Set.of()));
@@ -301,7 +302,8 @@ public class BalancerHandlerTest {
 
   @CsvSource(value = {"5,500Byte", "10,500Byte", "5,1GB"})
   @ParameterizedTest
-  void testMoveCost(String leaderLimit, String sizeLimit) {
+  void testMoveCost(String leaderLimit, String sizeLimit)
+      throws ExecutionException, InterruptedException {
     createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
@@ -335,7 +337,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 60)
-  void testNoReport() {
+  void testNoReport() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
@@ -383,7 +385,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 60)
-  void testPut() {
+  void testPut() throws ExecutionException, InterruptedException {
     // arrange
     createAndProduceTopic(3, 10, (short) 2, false, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
@@ -435,7 +437,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 360)
-  void testSubmitRebalancePlanThreadSafe() {
+  void testSubmitRebalancePlanThreadSafe() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
@@ -469,7 +471,13 @@ public class BalancerHandlerTest {
                         // use cyclic barrier to ensure all threads are ready to work
                         Utils.packException(() -> barrier.await());
                         // send the put request
-                        handler.put(request).toCompletableFuture().join();
+                        try {
+                          handler.put(request).toCompletableFuture().join();
+                        } catch (ExecutionException e) {
+                          throw new RuntimeException(e);
+                        } catch (InterruptedException e) {
+                          throw new RuntimeException(e);
+                        }
                       }));
 
       // await work done
@@ -485,7 +493,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 60)
-  void testRebalanceDetectOngoing() {
+  void testRebalanceDetectOngoing() throws ExecutionException, InterruptedException {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       // create topic
@@ -529,7 +537,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 60)
-  void testGenerationDetectOngoing() {
+  void testGenerationDetectOngoing() throws ExecutionException, InterruptedException {
     var base =
         ClusterInfo.builder()
             .addNode(Set.of(1, 2, 3))
@@ -604,7 +612,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 60)
-  void testPutSanityCheck() {
+  void testPutSanityCheck() throws ExecutionException, InterruptedException {
     var topic = createAndProduceTopic(1, SERVICE).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
@@ -645,7 +653,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 60)
-  void testLookupRebalanceProgress() {
+  void testLookupRebalanceProgress() throws ExecutionException, InterruptedException {
     createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
@@ -748,6 +756,8 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(ExecutionFailed, progress.phase);
       Assertions.assertNotNull(progress.exception);
       Assertions.assertInstanceOf(String.class, progress.exception);
+    } catch (ExecutionException | InterruptedException e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -770,7 +780,7 @@ public class BalancerHandlerTest {
 
   @Test
   @Timeout(value = 60)
-  void testPutIdempotent() {
+  void testPutIdempotent() throws ExecutionException, InterruptedException {
     var topics = createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
@@ -875,7 +885,7 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  void testTimeout() {
+  void testTimeout() throws ExecutionException, InterruptedException {
     createAndProduceTopic(5, SERVICE);
     var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
     try (var admin = Admin.of(SERVICE.bootstrapServers());
@@ -895,7 +905,7 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  void testCostWithSensor() {
+  void testCostWithSensor() throws ExecutionException, InterruptedException {
     var topics = createAndProduceTopic(3, SERVICE);
     var function = List.of(costWeight(SensorAndCost.class.getName(), 1));
     var functionName = function.stream().map(x -> x.cost).collect(Collectors.toUnmodifiableSet());
@@ -1045,7 +1055,7 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  void testExecutorConfig() {
+  void testExecutorConfig() throws ExecutionException, InterruptedException {
     var topic = createAndProduceTopic(1, SERVICE).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
@@ -1079,7 +1089,7 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  void testBalancerConfig() {
+  void testBalancerConfig() throws ExecutionException, InterruptedException {
     createAndProduceTopic(1, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
@@ -1112,7 +1122,8 @@ public class BalancerHandlerTest {
 
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
-      BalancerHandler handler, BalancerPostRequest request) {
+      BalancerHandler handler, BalancerPostRequest request)
+      throws ExecutionException, InterruptedException {
     if (request.clusterCosts.isEmpty()) request.clusterCosts = defaultDecreasing;
     var post =
         (BalancerHandler.PostPlanResponse)
